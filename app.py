@@ -32,7 +32,11 @@ def init_db():
             danh_muc TEXT DEFAULT 'the-thao-nam',
             tag TEXT DEFAULT '-20%'
         )
-        try:
+    ''')
+    conn.commit()
+
+    # Tự động vá các cột nếu database cũ chưa có
+    try:
         cursor.execute("ALTER TABLE san_pham ADD COLUMN gia_cu INTEGER")
         conn.commit()
     except:
@@ -72,9 +76,9 @@ def init_db():
             ("Bột Whey Protein Hỗ Trợ Tăng Cơ Giảm Mỡ", 650000, 850000, "https://images.unsplash.com/photo-1579722883378-7634e4096053", "https://vt.tiktok.com/", "whey-tpbs", "-23%")
         ]
         cursor.executemany('''
-            INSERT INTO san_pham (ten, gia, gia_cu, anh, link_affiliate, danh_muc, tag)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', san_pham_mau)
+    INSERT INTO san_pham (ten, gia, gia_cu, anh, link_affiliate, danh_muc, tag)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+''', san_pham_mau)
         conn.commit()
         
     conn.close()
