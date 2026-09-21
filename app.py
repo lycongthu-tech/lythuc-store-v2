@@ -14,6 +14,21 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 DATABASE = 'dulieu.db'
 
 
+def save_uploaded_image(file_storage):
+    if not file_storage or not file_storage.filename:
+        return None
+
+    filename = secure_filename(file_storage.filename)
+    if not filename:
+        return None
+
+    name, ext = os.path.splitext(filename)
+    unique_name = f"{int(time.time() * 1000)}_{name[:80]}{ext}"
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_name)
+    file_storage.save(file_path)
+    return f"/static/uploads/{unique_name}"
+
+
 def get_db_connection():
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
@@ -170,10 +185,13 @@ def add_product():
     gia = int(request.form['gia'])
     gia_cu_input = request.form.get('gia_cu')
     gia_cu = int(gia_cu_input) if gia_cu_input else int(gia * 1.25)
-    anh = request.form['anh']
-    link_affiliate = request.form['link_affiliate']
-    danh_muc = request.form['danh_muc']
+    link_affiliate = request.form.get('link_affiliate', '')
+    danh_muc = request.form.get('danh_muc', 'the-thao-nam')
     tag = request.form.get('tag', '-20%')
+
+    anh_url = request.form.get('anh', '').strip()
+    anh_upload = save_uploaded_image(request.files.get('file_anh'))
+    anh = anh_upload or anh_url or 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518'
 
     conn = get_db_connection()
     conn.execute('''
@@ -196,16 +214,15 @@ def edit_product(id):
     gia_cu_input = request.form.get('gia_cu')
     gia_cu = int(gia_cu_input) if gia_cu_input else 0
     link_affiliate = request.form.get('link_affiliate', '')
-    danh_muc = request.form.get('danh_muc', '')
+    danh_muc = request.form.get('danh_muc', 'the-thao-nam')
     tag = request.form.get('tag', '')
 
-    file_anh = request.files.get('file_anh')
-    if file_anh and file_anh.filename != '':
-        filename = secure_filename(file_anh.filename)
-        filename = f"{int(time.time())}_{filename}"
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file_anh.save(filepath)
-        anh = f'/static/uploads/{filename}'
+    anh_url = request.form.get('anh', '').strip()
+    anh_upload = save_uploaded_image(request.files.get('file_anh'))
+    if anh_upload:
+        anh = anh_upload
+    elif anh_url:
+        anh = anh_url
     else:
         anh = request.form.get('anh_cu', '')
 
@@ -236,4 +253,3 @@ def delete_product(id):
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-    app.run(debug=True)

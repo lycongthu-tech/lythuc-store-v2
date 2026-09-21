@@ -51,7 +51,7 @@
         <!-- FORM THÊM SẢN PHẨM MỚI -->
         <div class="form-card">
             <h3 style="margin-bottom: 15px; color: #1e293b;"><i class="fa-solid fa-plus-circle"></i> Thêm Sản Phẩm Mới</h3>
-            <form action="/admin/add" method="POST">
+            <form action="/admin/add" method="POST" enctype="multipart/form-data">
                 <div class="form-grid">
                     <div class="form-group" style="grid-column: span 2;">
                         <label>Tên Sản Phẩm:</label>
@@ -66,8 +66,12 @@
                         <input type="number" name="gia_cu" placeholder="Tự tạo nếu để trống">
                     </div>
                     <div class="form-group" style="grid-column: span 2;">
-                        <label>Link Ảnh (URL):</label>
-                        <input type="text" name="anh" placeholder="https://..." required>
+                        <label>Ảnh Sản Phẩm (upload từ điện thoại):</label>
+                        <input type="file" name="file_anh" accept="image/*" capture="environment">
+                    </div>
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Hoặc dán Link Ảnh URL:</label>
+                        <input type="text" name="anh" placeholder="https://... (không bắt buộc nếu đã upload ảnh)">
                     </div>
                     <div class="form-group" style="grid-column: span 2;">
                         <label>Link Affiliate TikTok Shop:</label>
@@ -150,19 +154,22 @@
                         <label>Tên Sản Phẩm:</label>
                         <input type="text" id="edit_ten" name="ten" required>
                     </div>
-                    <div class="form-group" style="grid-column: span 2;">
-    <label>Tải Ảnh Sản Phẩm (Chọn từ thiết bị):</label>
-    <input type="file" name="file_anh" accept="image/*">
-    <input type="hidden" name="anh_cu" id="edit_anh">
-</div>
-
+                    <div class="form-group">
+                        <label>Giá Bán (VNĐ):</label>
+                        <input type="number" id="edit_gia" name="gia" required>
+                    </div>
                     <div class="form-group">
                         <label>Giá Cũ (VNĐ):</label>
                         <input type="number" id="edit_gia_cu" name="gia_cu">
                     </div>
                     <div class="form-group" style="grid-column: span 2;">
-                        <label>Link Ảnh (URL):</label>
-                        <input type="text" id="edit_anh" name="anh" required>
+                        <label>Tải Ảnh Sản Phẩm (từ điện thoại):</label>
+                        <input type="file" name="file_anh" accept="image/*" capture="environment">
+                    </div>
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Hoặc giữ URL ảnh cũ / nhập link mới:</label>
+                        <input type="text" id="edit_anh_url" name="anh" placeholder="https://...">
+                        <input type="hidden" name="anh_cu" id="edit_anh_cu">
                     </div>
                     <div class="form-group" style="grid-column: span 2;">
                         <label>Link Affiliate TikTok Shop:</label>
@@ -205,7 +212,8 @@
     document.getElementById('edit_ten').value = ten;
     document.getElementById('edit_gia').value = gia;
     document.getElementById('edit_gia_cu').value = gia_cu;
-    document.getElementById('edit_anh').value = anh;
+    document.getElementById('edit_anh_url').value = anh;
+    document.getElementById('edit_anh_cu').value = anh;
     document.getElementById('edit_link_affiliate').value = link;
     document.getElementById('edit_danh_muc').value = danh_muc;
     document.getElementById('edit_tag').value = tag;
