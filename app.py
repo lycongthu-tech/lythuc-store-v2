@@ -165,9 +165,10 @@ def init_db():
     conn.commit()
 
     if DATABASE_URL:
-        existing_columns = [row['column_name'] for row in cursor.execute(
+        cursor.execute(
             "SELECT column_name FROM information_schema.columns WHERE table_name = 'san_pham'"
-        ).fetchall()]
+        )
+        existing_columns = [row['column_name'] for row in cursor.fetchall()]
     else:
         existing_columns = [row[1] for row in cursor.execute('PRAGMA table_info(san_pham)').fetchall()]
     for column_name, column_type in [
