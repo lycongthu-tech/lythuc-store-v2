@@ -27,7 +27,30 @@ def init_db():
             tag TEXT DEFAULT '-20%'
         )
     ''')
-    conn.commit()
+    
+    # Kiểm tra xem bảng có đang trống hay không để tự động nạp lại 11 sản phẩm mẫu
+    cursor.execute('SELECT COUNT(*) FROM san_pham')
+    count = cursor.fetchone()[0]
+    if count == 0:
+        san_pham_mau = [
+            ("Áo Thun Thể Thao Nam Vải Poly Cao Cấp", 89000, 120000, "https://images.unsplash.com/photo-1581655353564-df123a1eb820", "https://vt.tiktok.com/", "the-thao-nam", "-25%"),
+            ("Quần Short Gym Nam Có Túi Kéo Khóa", 99000, 150000, "https://images.unsplash.com/photo-1517445312882-bc9910d016b7", "https://vt.tiktok.com/", "the-thao-nam", "-33%"),
+            ("Áo Khoác Chạy Bộ Nam - Dài Tay Cao Cấp", 169000, 220000, "https://images.unsplash.com/photo-1556905055-8f358a7a47b2", "https://vt.tiktok.com/", "the-thao-nam", "-23%"),
+            ("Bộ Quần Áo Tập Gym Nam Thể Thao Mùa Hè", 199000, 280000, "https://images.unsplash.com/photo-1534438327276-14e5300c3a48", "https://vt.tiktok.com/", "the-thao-nam", "-28%"),
+            ("Áo Tập Yoga Nữ Không Gọng Tôn Dáng", 89000, 130000, "https://images.unsplash.com/photo-1518310383802-640c2de311b2", "https://vt.tiktok.com/", "the-thao-nu", "-31%"),
+            ("Quần Legging Nữ Cạp Cao Nâng Mông", 109000, 160000, "https://images.unsplash.com/photo-1506126613408-eca07ce68773", "https://vt.tiktok.com/", "the-thao-nu", "-31%"),
+            ("Áo Khoác Gió Thể Thao Nữ Chống Nước Nhẹ", 159000, 220000, "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b", "https://vt.tiktok.com/", "the-thao-nu", "-27%"),
+            ("Băng Quấn Cổ Tay Tập Gym Chống Trượt", 45000, 70000, "https://images.unsplash.com/photo-1584735935682-2f2b69dff9d2", "https://vt.tiktok.com/", "the-thao-nu", "-35%"),
+            ("Đai Lưng Tập Gym Bảo Vệ Cột Sống", 225000, 320000, "https://images.unsplash.com/photo-1517838277536-f5f99be501cd", "https://vt.tiktok.com/", "phu-kien", "-30%"),
+            ("Thảm Tập Yoga Cao Su Non Chống Trượt", 140000, 200000, "https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f", "https://vt.tiktok.com/", "phu-kien", "-30%"),
+            ("Bột Whey Protein Hỗ Trợ Tăng Cơ Giảm Mỡ", 650000, 850000, "https://images.unsplash.com/photo-1579722883378-7634e4096053", "https://vt.tiktok.com/", "whey-tpbs", "-23%")
+        ]
+        cursor.executemany('''
+            INSERT INTO san_pham (ten, gia, gia_cu, anh, link_affiliate, danh_muc, tag)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', san_pham_mau)
+        conn.commit()
+        
     conn.close()
 
 init_db()
