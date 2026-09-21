@@ -1,12 +1,18 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for
+from werkzeug.utils import secure_filename
 import sqlite3
 import os
 
 app = Flask(__name__)
-app.secret_key = 'lythucstore_secret_key'
+app.secret_key = 'lythucstore_secr...'
+
+# --- THÊM ĐOẠN NÀY VÀO ĐÂY ---
+UPLOAD_FOLDER = 'static/uploads'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+# -----------------------------
 
 DATABASE = 'dulieu.db'
-
 def get_db_connection():
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
@@ -166,11 +172,20 @@ def edit_product(id):
     gia = int(request.form['gia'])
     gia_cu_input = request.form.get('gia_cu')
     gia_cu = int(gia_cu_input) if gia_cu_input else int(gia * 1.25)
-    anh = request.form['anh']
-    link_affiliate = request.form['link_affiliate']
-    danh_muc = request.form['danh_muc']
-    tag = request.form.get('tag', '-20%')
+    # Xử lý file ảnh tải lên từ thiết bị di động
+    file_anh = request.files.get('file_anh')
     
+    if file_anh and file_anh.filename != '':
+        filename = secure_filename(file_anh.filename)
+        import time
+        filename = str(int(time.time())) + "_" + filename
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file_anh.save(filepath)
+        anh = f"/static/uploads/{filename}"
+    else:
+        # Nếu không chọn ảnh mới, giữ nguyên link ảnh cũ truyền ngầm từ form
+        anh = request.form.get('anh_cu', request.form['anh'])
+
     conn = get_db_connection()
     conn.execute('''
         UPDATE san_pham

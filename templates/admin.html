@@ -144,16 +144,18 @@
                 <h3><i class="fa-solid fa-pen-to-square"></i> Chỉnh Sửa Sản Phẩm</h3>
                 <span class="close-btn" onclick="closeEditModal()">&times;</span>
             </div>
-            <form id="editForm" method="POST">
+            <form id="editForm" method="POST" enctype="multipart/form-data">
                 <div class="form-grid">
                     <div class="form-group" style="grid-column: span 2;">
                         <label>Tên Sản Phẩm:</label>
                         <input type="text" id="edit_ten" name="ten" required>
                     </div>
-                    <div class="form-group">
-                        <label>Giá Bán (VNĐ):</label>
-                        <input type="number" id="edit_gia" name="gia" required>
-                    </div>
+                    <div class="form-group" style="grid-column: span 2;">
+    <label>Tải Ảnh Sản Phẩm (Chọn từ thiết bị):</label>
+    <input type="file" name="file_anh" accept="image/*">
+    <input type="hidden" name="anh_cu" id="edit_anh">
+</div>
+
                     <div class="form-group">
                         <label>Giá Cũ (VNĐ):</label>
                         <input type="number" id="edit_gia_cu" name="gia_cu">
