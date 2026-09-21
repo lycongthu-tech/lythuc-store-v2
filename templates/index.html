@@ -290,24 +290,79 @@
 </html>
 <style>
 .buy-btn {
+    position: relative;
     display: block;
     width: calc(100% - 16px);
     margin: 8px auto;
     background: linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #fe2c55 100%);
     color: white !important;
     text-align: center;
-    padding: 8px 6px;
+    padding: 10px 12px;
     border-radius: 8px;
     font-size: 11px !important;
     font-weight: bold;
     text-decoration: none;
     white-space: nowrap !important;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
     transition: all 0.3s ease;
+    animation: buyPulse 1.8s ease-in-out infinite;
+}
+
+.buy-btn::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.35) 50%, transparent 100%);
+    transform: translateX(-130%);
+    animation: shimmer 2.2s infinite;
+}
+
+.buy-btn::after {
+    content: "";
+    position: absolute;
+    inset: -20% -10%;
+    border-radius: 50%;
+    background: rgba(254, 44, 85, 0.18);
+    filter: blur(12px);
+    z-index: 0;
+    animation: halo 1.8s ease-in-out infinite;
+}
+
+.buy-btn i,
+.buy-btn span {
+    position: relative;
+    z-index: 1;
 }
 
 .buy-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(254, 44, 85, 0.3);
+    transform: translateY(-2px) scale(1.01);
+    box-shadow: 0 8px 20px rgba(254, 44, 85, 0.45);
+    background: linear-gradient(135deg, #0f172a 0%, #111827 30%, #fe2c55 100%);
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-130%); }
+    100% { transform: translateX(130%); }
+}
+
+@keyframes buyPulse {
+    0%, 100% {
+        box-shadow: 0 0 0 rgba(254, 44, 85, 0.18), 0 4px 10px rgba(0,0,0,0.15);
+    }
+    50% {
+        box-shadow: 0 0 18px rgba(254, 44, 85, 0.38), 0 8px 16px rgba(254, 44, 85, 0.2);
+    }
+}
+
+@keyframes halo {
+    0%, 100% {
+        transform: scale(0.96);
+        opacity: 0.55;
+    }
+    50% {
+        transform: scale(1.08);
+        opacity: 0.9;
+    }
 }
 </style>
