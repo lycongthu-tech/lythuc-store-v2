@@ -34,18 +34,18 @@ def validate_csrf():
 
 
 cloudinary.config(
-    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
-    api_key=os.environ.get('CLOUDINARY_API_KEY'),
-    api_secret=os.environ.get('CLOUDINARY_API_SECRET'),
+    cloud_name=(os.environ.get('CLOUDINARY_CLOUD_NAME') or '').strip(),
+    api_key=(os.environ.get('CLOUDINARY_API_KEY') or '').strip(),
+    api_secret=(os.environ.get('CLOUDINARY_API_SECRET') or '').strip(),
     secure=True
 )
 
-DATABASE_URL = os.environ.get('DATABASE_URL')
+DATABASE_URL = (os.environ.get('DATABASE_URL') or '').strip().strip('"').strip("'") or None
 IS_PRODUCTION = os.environ.get('RENDER') == 'true' or os.environ.get('FLASK_ENV') == 'production'
 HAS_CLOUDINARY_CONFIG = all([
-    os.environ.get('CLOUDINARY_CLOUD_NAME'),
-    os.environ.get('CLOUDINARY_API_KEY'),
-    os.environ.get('CLOUDINARY_API_SECRET'),
+    (os.environ.get('CLOUDINARY_CLOUD_NAME') or '').strip(),
+    (os.environ.get('CLOUDINARY_API_KEY') or '').strip(),
+    (os.environ.get('CLOUDINARY_API_SECRET') or '').strip(),
 ])
 
 UPLOAD_FOLDER = 'static/uploads'
@@ -81,6 +81,7 @@ def save_uploaded_image(file_storage):
         return result.get('secure_url') or result.get('url')
     except Exception:
         if IS_PRODUCTION:
+            app.logger.exception('Cloudinary upload failed')
             raise
 
         # Chỉ fallback local khi chạy development; filesystem Render không bền vững.
@@ -353,11 +354,16 @@ def add_product():
         if conn:
             conn.rollback()
         flash(str(error), 'error')
+    except psycopg2.Error:
+        if conn:
+            conn.rollback()
+        app.logger.exception('PostgreSQL insert failed')
+        flash('Không thể lưu sản phẩm vào PostgreSQL. Hãy kiểm tra DATABASE_URL.', 'error')
     except Exception:
         if conn:
             conn.rollback()
         app.logger.exception('Không thể thêm sản phẩm')
-        flash('Không thể thêm sản phẩm. Hãy kiểm tra DATABASE_URL và Cloudinary.', 'error')
+        flash('Không thể thêm sản phẩm. Hãy xem log Render để biết chi tiết.', 'error')
     finally:
         if conn:
             conn.close()
@@ -401,11 +407,16 @@ def edit_product(id):
         if conn:
             conn.rollback()
         flash(str(error), 'error')
+    except psycopg2.Error:
+        if conn:
+            conn.rollback()
+        app.logger.exception('PostgreSQL update failed')
+        flash('Không thể cập nhật sản phẩm vào PostgreSQL. Hãy kiểm tra DATABASE_URL.', 'error')
     except Exception:
         if conn:
             conn.rollback()
         app.logger.exception('Không thể cập nhật sản phẩm')
-        flash('Không thể cập nhật sản phẩm. Hãy kiểm tra DATABASE_URL và Cloudinary.', 'error')
+        flash('Không thể cập nhật sản phẩm. Hãy xem log Render để biết chi tiết.', 'error')
     finally:
         if conn:
             conn.close()
