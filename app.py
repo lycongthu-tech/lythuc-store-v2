@@ -151,12 +151,15 @@ def index():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
+        ten_dang_nhap = request.form.get('ten_dang_nhap')
         mat_khau = request.form.get('mat_khau')
-        if mat_khau == '123456':  # Mật khẩu Admin
+        
+        # Anh thay tên đăng nhập và mật khẩu theo ý muốn ở 2 chữ bên dưới:
+        if ten_dang_nhap == 'thuc' and mat_khau == '1598thuc':
             session['logged_in'] = True
             return redirect(url_for('admin'))
         else:
-            return render_template('login.html', error="Mật khẩu không chính xác!")
+            return render_template('login.html', error="Tên đăng nhập hoặc mật khẩu không chính xác!")
     return render_template('login.html')
 
 # Trang Quản trị Admin
