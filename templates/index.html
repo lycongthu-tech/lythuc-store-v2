@@ -86,16 +86,28 @@
             top: 10px;
             right: 10px;
             z-index: 5;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
             background: linear-gradient(135deg, #ff4d6d, #ff7b00);
             color: white;
             font-size: 0.72rem;
             font-weight: 800;
             line-height: 1;
-            padding: 8px 9px;
+            padding: 8px 10px;
             border-radius: 999px;
             box-shadow: 0 8px 18px rgba(255, 77, 109, 0.35);
             border: 2px solid rgba(255,255,255,0.7);
             animation: discountFloat 1.8s ease-in-out infinite;
+        }
+        .discount-badge .tag-text {
+            font-size: 0.7rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+        .discount-badge .percent-text {
+            font-size: 0.7rem;
+            opacity: 0.96;
         }
         @keyframes discountFloat {
             0%, 100% { transform: translateY(0) scale(1); }
@@ -267,7 +279,12 @@
     {% for sp in san_pham %}
     <div class="product-card">
         {% if sp.gia_cu_formatted %}
-        <div class="discount-badge">{{ sp.giam_gia }}</div>
+        <div class="discount-badge">
+            {% if sp.tag and sp.tag != sp.giam_gia %}
+                <span class="tag-text">{{ sp.tag }}</span>
+            {% endif %}
+            <span class="percent-text">{{ sp.giam_gia }}</span>
+        </div>
         {% endif %}
         <!-- Thẻ a bọc từ ảnh xuống tên -->
         <a href="{{ sp.link_affiliate }}" target="_blank" style="text-decoration: none; color: inherit; display: block;">

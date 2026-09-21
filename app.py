@@ -142,16 +142,19 @@ def index():
         gia_moi = item['gia']
         gia_cu = item['gia_cu'] if item['gia_cu'] else int(gia_moi * 1.25)
         phan_tram_giam = int(round((1 - (gia_moi / gia_cu)) * 100)) if gia_cu > 0 else 0
+        raw_tag = (item['tag'] or '').strip()
+        tag_text = raw_tag if raw_tag else f'-{phan_tram_giam}%'
         san_pham.append({
             'id': item['id'],
             'ten': item['ten'],
             'gia_formatted': format_gia(gia_moi),
             'gia_cu_formatted': format_gia(gia_cu),
             'giam_gia': f'-{phan_tram_giam}%',
+            'tag': tag_text,
             'anh': item['anh'],
             'link_affiliate': item['link_affiliate'],
             'danh_muc': item['danh_muc'],
-            'tag': item['tag'] if item['tag'] else f'-{phan_tram_giam}%'
+            'tag_style': 'sale' if raw_tag and raw_tag.startswith('-') else 'custom'
         })
 
     return render_template(
