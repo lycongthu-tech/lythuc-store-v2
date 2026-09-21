@@ -41,6 +41,7 @@
             max-width: 720px;
             margin: 0 auto 18px;
             padding: 0 10px;
+            position: relative;
         }
         .search-form {
             display: flex;
@@ -68,6 +69,38 @@
             font-weight: 700;
             cursor: pointer;
         }
+        .search-suggestions {
+            display: none;
+            position: absolute;
+            top: calc(100% - 10px);
+            left: 10px;
+            right: 10px;
+            z-index: 20;
+            overflow: hidden;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 0 0 10px 10px;
+            box-shadow: 0 10px 22px rgba(15,23,42,0.12);
+        }
+        .suggestion-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            padding: 10px 12px;
+            border: 0;
+            border-bottom: 1px solid #f1f5f9;
+            background: white;
+            color: #1e293b;
+            text-align: left;
+            cursor: pointer;
+        }
+        .suggestion-item:last-child { border-bottom: 0; }
+        .suggestion-item:hover, .suggestion-item:focus { background: #f8fafc; outline: none; }
+        .suggestion-item img { width: 38px; height: 38px; border-radius: 6px; object-fit: cover; flex: 0 0 auto; }
+        .suggestion-copy { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+        .suggestion-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.88rem; font-weight: 600; }
+        .suggestion-price { color: #ef4444; font-size: 0.78rem; font-weight: 700; }
         .category-chip {
             padding: 10px 16px;
             border-radius: 999px;
@@ -390,9 +423,10 @@
             {% if selected_category and selected_category != 'all' %}
             <input type="hidden" name="danh_muc" value="{{ selected_category }}">
             {% endif %}
-            <input type="search" name="q" value="{{ search_query }}" placeholder="Tìm sản phẩm..." aria-label="Tìm sản phẩm">
+            <input id="productSearch" type="search" name="q" value="{{ search_query }}" placeholder="Tìm sản phẩm..." aria-label="Tìm sản phẩm" autocomplete="off">
             <button type="submit"><i class="fa-solid fa-magnifying-glass"></i> Tìm</button>
         </form>
+        <div id="searchSuggestions" class="search-suggestions" role="listbox" aria-label="Gợi ý sản phẩm"></div>
     </div>
 
     <div style="max-width: 1200px; margin: 0 auto 20px; padding: 0 10px;">
@@ -455,6 +489,79 @@
             <div class="pulse-ring"></div>
         </a>
     </div>
+
+    <script>
+        const productSearch = document.getElementById('productSearch');
+        const searchSuggestions = document.getElementById('searchSuggestions');
+        let searchTimer;
+
+        function hideSuggestions() {
+            searchSuggestions.innerHTML = '';
+            searchSuggestions.style.display = 'none';
+        }
+
+        function showSuggestions(products) {
+            searchSuggestions.innerHTML = '';
+            if (!products.length) {
+                hideSuggestions();
+                return;
+            }
+
+            products.forEach((product) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'suggestion-item';
+                button.setAttribute('role', 'option');
+
+                const image = document.createElement('img');
+                image.src = product.anh;
+                image.alt = '';
+                image.loading = 'lazy';
+
+                const copy = document.createElement('span');
+                copy.className = 'suggestion-copy';
+                const name = document.createElement('span');
+                name.className = 'suggestion-name';
+                name.textContent = product.ten;
+                const price = document.createElement('span');
+                price.className = 'suggestion-price';
+                price.textContent = product.gia;
+                copy.append(name, price);
+                button.append(image, copy);
+                button.addEventListener('click', () => {
+                    productSearch.value = product.ten;
+                    productSearch.form.submit();
+                });
+                searchSuggestions.appendChild(button);
+            });
+            searchSuggestions.style.display = 'block';
+        }
+
+        productSearch.addEventListener('input', () => {
+            clearTimeout(searchTimer);
+            const query = productSearch.value.trim();
+            if (query.length < 2) {
+                hideSuggestions();
+                return;
+            }
+            searchTimer = setTimeout(async () => {
+                try {
+                    const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+                    if (!response.ok) throw new Error('Search request failed');
+                    showSuggestions(await response.json());
+                } catch (error) {
+                    hideSuggestions();
+                }
+            }, 180);
+        });
+
+        productSearch.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') hideSuggestions();
+        });
+        document.addEventListener('click', (event) => {
+            if (!event.target.closest('.search-panel')) hideSuggestions();
+        });
+    </script>
 
 </body>
 </html>

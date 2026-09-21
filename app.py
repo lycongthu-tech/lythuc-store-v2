@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, jsonify, render_template, request, redirect, url_for, session, flash
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 import os
@@ -270,6 +270,33 @@ def index():
         selected_category=selected_category,
         search_query=search_query
     )
+
+
+@app.route('/api/search')
+def search_products():
+    search_query = request.args.get('q', '').strip()
+    if len(search_query) < 2:
+        return jsonify([])
+
+    conn = get_db_connection()
+    rows = conn.execute('''
+        SELECT id, ten, gia, anh
+        FROM san_pham
+        WHERE LOWER(ten) LIKE LOWER(?)
+        ORDER BY id DESC
+        LIMIT 8
+    ''', (f'%{search_query}%',)).fetchall()
+    conn.close()
+
+    return jsonify([
+        {
+            'id': row['id'],
+            'ten': row['ten'],
+            'gia': format_gia(row['gia']),
+            'anh': row['anh']
+        }
+        for row in rows
+    ])
 
 
 @app.route('/login', methods=['GET', 'POST'])
