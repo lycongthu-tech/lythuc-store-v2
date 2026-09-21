@@ -167,12 +167,19 @@ def add_product():
 def edit_product(id):
     if not session.get('logged_in'):
         return redirect(url_for('login'))
-        
+    
     ten = request.form['ten']
     gia = int(request.form['gia'])
+    
+    # Xử lý giá cũ (phòng trường hợp để trống)
     gia_cu_input = request.form.get('gia_cu')
-    gia_cu = int(gia_cu_input) if gia_cu_input else int(gia * 1.25)
-    # Xử lý file ảnh tải lên từ thiết bị di động
+    gia_cu = int(gia_cu_input) if gia_cu_input else 0
+    
+    link_affiliate = request.form.get('link_affiliate', '')
+    danh_muc = request.form.get('danh_muc', '')
+    tag = request.form.get('tag', '')
+
+    # Xử lý file ảnh tải lên từ thiết bị
     file_anh = request.files.get('file_anh')
     
     if file_anh and file_anh.filename != '':
@@ -183,9 +190,10 @@ def edit_product(id):
         file_anh.save(filepath)
         anh = f"/static/uploads/{filename}"
     else:
-        # Nếu không chọn ảnh mới, giữ nguyên link ảnh cũ truyền ngầm từ form
-        anh = request.form.get('anh_cu', request.form['anh'])
+        # Nếu không chọn ảnh mới, lấy lại link ảnh cũ từ form ẩn
+        anh = request.form.get('anh_cu', '')
 
+    # Cập nhật vào cơ sở dữ liệu
     conn = get_db_connection()
     conn.execute('''
         UPDATE san_pham
@@ -194,7 +202,7 @@ def edit_product(id):
     ''', (ten, gia, gia_cu, anh, link_affiliate, danh_muc, tag, id))
     conn.commit()
     conn.close()
-    
+
     return redirect(url_for('admin'))
 
 # XOÁ SẢN PHẨM
