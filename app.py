@@ -128,6 +128,9 @@ class PostgresConnection:
     def commit(self):
         self.connection.commit()
 
+    def rollback(self):
+        self.connection.rollback()
+
     def close(self):
         self.connection.close()
 
@@ -322,25 +325,42 @@ def add_product():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
 
-    ten = request.form['ten']
-    gia = int(request.form['gia'])
-    gia_cu_input = request.form.get('gia_cu')
-    gia_cu = int(gia_cu_input) if gia_cu_input else int(gia * 1.25)
-    link_affiliate = request.form.get('link_affiliate', '')
-    danh_muc = request.form.get('danh_muc', 'the-thao-nam')
-    tag = request.form.get('tag', '-20%')
+    conn = None
+    try:
+        ten = request.form.get('ten', '').strip()
+        gia = int(request.form.get('gia', '').strip())
+        gia_cu_input = request.form.get('gia_cu', '').strip()
+        gia_cu = int(gia_cu_input) if gia_cu_input else int(gia * 1.25)
+        link_affiliate = request.form.get('link_affiliate', '').strip()
+        danh_muc = request.form.get('danh_muc', 'the-thao-nam')
+        tag = request.form.get('tag', '').strip()
 
-    anh_url = request.form.get('anh', '').strip()
-    anh_upload = save_uploaded_image(request.files.get('file_anh'))
-    anh = anh_upload or anh_url or 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518'
+        if not ten or gia <= 0 or gia_cu <= 0 or not link_affiliate:
+            raise ValueError('Vui lòng nhập đầy đủ tên, giá bán, giá cũ và link sản phẩm hợp lệ.')
 
-    conn = get_db_connection()
-    conn.execute('''
-        INSERT INTO san_pham (ten, gia, gia_cu, anh, link_affiliate, danh_muc, tag)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', (ten, gia, gia_cu, anh, link_affiliate, danh_muc, tag))
-    conn.commit()
-    conn.close()
+        anh_url = request.form.get('anh', '').strip()
+        anh_upload = save_uploaded_image(request.files.get('file_anh'))
+        anh = anh_upload or anh_url or 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518'
+
+        conn = get_db_connection()
+        conn.execute('''
+            INSERT INTO san_pham (ten, gia, gia_cu, anh, link_affiliate, danh_muc, tag)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (ten, gia, gia_cu, anh, link_affiliate, danh_muc, tag))
+        conn.commit()
+        flash('Đã thêm sản phẩm thành công.', 'success')
+    except (ValueError, TypeError) as error:
+        if conn:
+            conn.rollback()
+        flash(str(error), 'error')
+    except Exception:
+        if conn:
+            conn.rollback()
+        app.logger.exception('Không thể thêm sản phẩm')
+        flash('Không thể thêm sản phẩm. Hãy kiểm tra DATABASE_URL và Cloudinary.', 'error')
+    finally:
+        if conn:
+            conn.close()
 
     return redirect(url_for('admin'))
 
@@ -350,31 +370,45 @@ def edit_product(id):
     if not session.get('logged_in'):
         return redirect(url_for('login'))
 
-    ten = request.form['ten']
-    gia = int(request.form['gia'])
-    gia_cu_input = request.form.get('gia_cu')
-    gia_cu = int(gia_cu_input) if gia_cu_input else 0
-    link_affiliate = request.form.get('link_affiliate', '')
-    danh_muc = request.form.get('danh_muc', 'the-thao-nam')
-    tag = request.form.get('tag', '')
+    conn = None
+    try:
+        ten = request.form.get('ten', '').strip()
+        gia = int(request.form.get('gia', '').strip())
+        gia_cu_input = request.form.get('gia_cu', '').strip()
+        gia_cu = int(gia_cu_input) if gia_cu_input else 0
+        link_affiliate = request.form.get('link_affiliate', '').strip()
+        danh_muc = request.form.get('danh_muc', 'the-thao-nam')
+        tag = request.form.get('tag', '').strip()
 
-    anh_url = request.form.get('anh', '').strip()
-    anh_upload = save_uploaded_image(request.files.get('file_anh'))
-    if anh_upload:
-        anh = anh_upload
-    elif anh_url:
-        anh = anh_url
-    else:
-        anh = request.form.get('anh_cu', '')
+        if not ten or gia <= 0 or (gia_cu_input and gia_cu <= 0) or not link_affiliate:
+            raise ValueError('Vui lòng nhập đầy đủ tên, giá bán và link sản phẩm hợp lệ.')
 
-    conn = get_db_connection()
-    conn.execute('''
-        UPDATE san_pham
-        SET ten = ?, gia = ?, gia_cu = ?, anh = ?, link_affiliate = ?, danh_muc = ?, tag = ?
-        WHERE id = ?
-    ''', (ten, gia, gia_cu, anh, link_affiliate, danh_muc, tag, id))
-    conn.commit()
-    conn.close()
+        anh_url = request.form.get('anh', '').strip()
+        anh_upload = save_uploaded_image(request.files.get('file_anh'))
+        anh = anh_upload or anh_url or request.form.get('anh_cu', '')
+        if not anh:
+            raise ValueError('Sản phẩm cần có ảnh hoặc URL ảnh.')
+
+        conn = get_db_connection()
+        conn.execute('''
+            UPDATE san_pham
+            SET ten = ?, gia = ?, gia_cu = ?, anh = ?, link_affiliate = ?, danh_muc = ?, tag = ?
+            WHERE id = ?
+        ''', (ten, gia, gia_cu, anh, link_affiliate, danh_muc, tag, id))
+        conn.commit()
+        flash('Đã cập nhật sản phẩm thành công.', 'success')
+    except (ValueError, TypeError) as error:
+        if conn:
+            conn.rollback()
+        flash(str(error), 'error')
+    except Exception:
+        if conn:
+            conn.rollback()
+        app.logger.exception('Không thể cập nhật sản phẩm')
+        flash('Không thể cập nhật sản phẩm. Hãy kiểm tra DATABASE_URL và Cloudinary.', 'error')
+    finally:
+        if conn:
+            conn.close()
 
     return redirect(url_for('admin'))
 
