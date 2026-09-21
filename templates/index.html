@@ -222,7 +222,9 @@
             }
         }
     </style>
+
 </head>
+
 <body>
 
     <div class="header-container">
@@ -251,11 +253,11 @@
             <span class="price-old">{{ sp.gia_cu_formatted }}</span>
             {% endif %}
         </div>
-
-        <!-- Nút mua hàng -->
-        <a href="{{ sp.link_affiliate }}" target="_blank" class="buy-btn">
-            <i class="fa-brands fa-tiktok"></i> MUA TRÊN TIKTOK SHOP
-        </a>
+        <!-- Nút mua hàng chuẩn hiệu ứng gradient, 1 hàng, chữ MUA NGAY TRÊN TIKTOK SHOP -->
+    <a href="{{ sp.link_affiliate }}" target="_blank" class="buy-btn">
+        
+        <i class="fa-brands fa-tiktok"></i> MUA NGAY TRÊN TIKTOK SHOP
+    </a>
     </div>
     {% endfor %}
 </div>
@@ -276,3 +278,26 @@
 
 </body>
 </html>
+<style>
+.buy-btn {
+    display: block;
+    width: calc(100% - 16px);
+    margin: 8px auto;
+    background: linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #fe2c55 100%);
+    color: white !important;
+    text-align: center;
+    padding: 8px 6px;
+    border-radius: 8px;
+    font-size: 11px !important;
+    font-weight: bold;
+    text-decoration: none;
+    white-space: nowrap !important;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    transition: all 0.3s ease;
+}
+
+.buy-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(254, 44, 85, 0.3);
+}
+</style>
