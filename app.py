@@ -32,6 +32,26 @@ def init_db():
             danh_muc TEXT DEFAULT 'the-thao-nam',
             tag TEXT DEFAULT '-20%'
         )
+        try:
+        cursor.execute("ALTER TABLE san_pham ADD COLUMN gia_cu INTEGER")
+        conn.commit()
+    except:
+        pass
+    try:
+        cursor.execute("ALTER TABLE san_pham ADD COLUMN link_affiliate TEXT")
+        conn.commit()
+    except:
+        pass
+    try:
+        cursor.execute("ALTER TABLE san_pham ADD COLUMN danh_muc TEXT")
+        conn.commit()
+    except:
+        pass
+    try:
+        cursor.execute("ALTER TABLE san_pham ADD COLUMN tag TEXT")
+        conn.commit()
+    except:
+        pass
     ''')
     
     # Kiểm tra xem bảng có đang trống hay không để tự động nạp lại 11 sản phẩm mẫu
