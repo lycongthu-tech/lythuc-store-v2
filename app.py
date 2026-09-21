@@ -226,12 +226,21 @@ def format_gia(gia):
 @app.route('/')
 def index():
     selected_category = request.args.get('danh_muc', 'all')
+    search_query = request.args.get('q', '').strip()
     conn = get_db_connection()
 
+    query = 'SELECT * FROM san_pham'
+    conditions = []
+    parameters = []
     if selected_category and selected_category != 'all':
-        sp_db = conn.execute('SELECT * FROM san_pham WHERE danh_muc = ? ORDER BY id DESC', (selected_category,)).fetchall()
-    else:
-        sp_db = conn.execute('SELECT * FROM san_pham ORDER BY id DESC').fetchall()
+        conditions.append('danh_muc = ?')
+        parameters.append(selected_category)
+    if search_query:
+        conditions.append('LOWER(ten) LIKE LOWER(?)')
+        parameters.append(f'%{search_query}%')
+    if conditions:
+        query += ' WHERE ' + ' AND '.join(conditions)
+    sp_db = conn.execute(query + ' ORDER BY id DESC', tuple(parameters)).fetchall()
     conn.close()
 
     san_pham = []
@@ -258,7 +267,8 @@ def index():
         'index.html',
         san_pham=san_pham,
         danh_muc_options=CATEGORY_LABELS,
-        selected_category=selected_category
+        selected_category=selected_category,
+        search_query=search_query
     )
 
 
@@ -287,11 +297,20 @@ def admin():
         return redirect(url_for('login'))
 
     selected_category = request.args.get('danh_muc', 'all')
+    search_query = request.args.get('q', '').strip()
     conn = get_db_connection()
+    query = 'SELECT * FROM san_pham'
+    conditions = []
+    parameters = []
     if selected_category and selected_category != 'all':
-        sp_db = conn.execute('SELECT * FROM san_pham WHERE danh_muc = ? ORDER BY id DESC', (selected_category,)).fetchall()
-    else:
-        sp_db = conn.execute('SELECT * FROM san_pham ORDER BY id DESC').fetchall()
+        conditions.append('danh_muc = ?')
+        parameters.append(selected_category)
+    if search_query:
+        conditions.append('(LOWER(ten) LIKE LOWER(?) OR LOWER(link_affiliate) LIKE LOWER(?) OR LOWER(tag) LIKE LOWER(?))')
+        parameters.extend([f'%{search_query}%'] * 3)
+    if conditions:
+        query += ' WHERE ' + ' AND '.join(conditions)
+    sp_db = conn.execute(query + ' ORDER BY id DESC', tuple(parameters)).fetchall()
     conn.close()
 
     danh_sach = []
@@ -317,6 +336,7 @@ def admin():
         san_pham=danh_sach,
         danh_muc_options=CATEGORY_LABELS,
         selected_category=selected_category,
+        search_query=search_query,
         csrf_token=generate_csrf_token()
     )
 

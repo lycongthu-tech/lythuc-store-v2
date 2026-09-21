@@ -17,6 +17,7 @@
             background-color: #f8fafc;
             color: #334155;
             padding-bottom: 50px;
+            overflow-x: hidden;
         }
         .header-container {
             background: linear-gradient(135deg, #0f172a, #1e293b);
@@ -35,6 +36,51 @@
         .header-container p {
             color: #94a3b8;
             font-size: 1rem;
+        }
+        .search-panel {
+            max-width: 720px;
+            margin: 0 auto 18px;
+            padding: 0 10px;
+        }
+        .search-form {
+            display: flex;
+            gap: 8px;
+            background: white;
+            padding: 8px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+        }
+        .search-form input {
+            flex: 1;
+            min-width: 0;
+            padding: 11px 13px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 0.95rem;
+        }
+        .search-form button {
+            border: 0;
+            border-radius: 8px;
+            padding: 0 18px;
+            background: #0f172a;
+            color: white;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .category-chip {
+            padding: 10px 16px;
+            border-radius: 999px;
+            text-decoration: none;
+            font-weight: 600;
+            background: #f1f5f9;
+            color: #334155;
+            border: 1px solid #e2e8f0;
+        }
+        .category-chip.active {
+            background: #0f172a;
+            color: white;
+            border-color: #0f172a;
         }
         .admin-link {
             position: absolute;
@@ -72,6 +118,8 @@
             overflow: hidden;
             box-shadow: 0 4px 15px rgba(0,0,0,0.05);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
+            content-visibility: auto;
+            contain-intrinsic-size: 420px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -126,6 +174,8 @@
             height: 220px;
             object-fit: cover;
             border-bottom: 1px solid #f1f5f9;
+            display: block;
+            background: #f1f5f9;
         }
         .product-info {
             padding: 15px;
@@ -141,6 +191,7 @@
             margin-bottom: 10px;
             display: -webkit-box;
             -webkit-line-clamp: 2;
+            line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
         }
@@ -261,6 +312,67 @@
                 opacity: 0;
             }
         }
+
+        @media (max-width: 768px) {
+            .header-container {
+                padding: 30px 16px;
+                margin-bottom: 18px;
+            }
+            .header-container h1 {
+                font-size: 1.7rem;
+            }
+            .search-form button {
+                padding: 0 14px;
+            }
+            .grid-container {
+                gap: 8px;
+                padding: 8px;
+            }
+            .product-card {
+                border-radius: 8px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+                transition: none;
+            }
+            .product-card:hover {
+                transform: none;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            }
+            .product-card img {
+                height: 170px;
+            }
+            .discount-badge,
+            .discount-badge .tag-text,
+            .buy-btn,
+            .buy-btn::before,
+            .buy-btn::after,
+            .pulse-ring {
+                animation: none;
+            }
+            .buy-btn::before,
+            .buy-btn::after {
+                display: none;
+            }
+            .floating-contact {
+                right: 14px;
+                bottom: 14px;
+                gap: 10px;
+            }
+            .float-btn {
+                width: 48px;
+                height: 48px;
+                font-size: 21px;
+                box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                scroll-behavior: auto !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
     </style>
 
 </head>
@@ -273,10 +385,20 @@
         <p>Hệ thống mua sắm chính hãng tích hợp TikTok Shop ưu đãi tốt nhất</p>
     </div>
 
+    <div class="search-panel">
+        <form class="search-form" method="get" action="/">
+            {% if selected_category and selected_category != 'all' %}
+            <input type="hidden" name="danh_muc" value="{{ selected_category }}">
+            {% endif %}
+            <input type="search" name="q" value="{{ search_query }}" placeholder="Tìm sản phẩm..." aria-label="Tìm sản phẩm">
+            <button type="submit"><i class="fa-solid fa-magnifying-glass"></i> Tìm</button>
+        </form>
+    </div>
+
     <div style="max-width: 1200px; margin: 0 auto 20px; padding: 0 10px;">
         <div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; background: white; border-radius: 12px; padding: 12px; box-shadow: 0 4px 12px rgba(15,23,42,0.06);">
             {% for key, label in danh_muc_options.items() %}
-            <a href="/?danh_muc={{ key }}" style="padding: 10px 16px; border-radius: 999px; text-decoration: none; font-weight: 600; background: {% if selected_category == key %}#0f172a{% else %}#f1f5f9{% endif %}; color: {% if selected_category == key %}white{% else %}#334155{% endif %}; border: 1px solid {% if selected_category == key %}#0f172a{% else %}#e2e8f0{% endif %};">
+            <a href="/?danh_muc={{ key }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}" class="category-chip{% if selected_category == key %} active{% endif %}">
                 {{ label }}
             </a>
             {% endfor %}
@@ -296,7 +418,7 @@
         {% endif %}
         <!-- Thẻ a bọc từ ảnh xuống tên -->
         <a href="{{ sp.link_affiliate }}" target="_blank" style="text-decoration: none; color: inherit; display: block;">
-            <img src="{{ sp.anh }}" alt="{{ sp.ten }}">
+            <img src="{{ sp.anh }}" alt="{{ sp.ten }}" loading="lazy" decoding="async" width="600" height="600">
             <div class="product-info">
                 <div>
                     <div class="product-title">{{ sp.ten }}</div>
@@ -411,6 +533,19 @@
     50% {
         transform: scale(1.08);
         opacity: 0.9;
+    }
+}
+
+@media (max-width: 768px) {
+    .buy-btn {
+        animation: none;
+        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+        transition: none;
+    }
+    .buy-btn::before,
+    .buy-btn::after {
+        display: none;
+        animation: none;
     }
 }
 </style>

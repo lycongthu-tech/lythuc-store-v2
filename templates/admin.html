@@ -43,6 +43,11 @@
         .flash-message { margin-bottom: 16px; padding: 12px 14px; border-radius: 8px; }
         .flash-success { background: #dcfce7; color: #166534; }
         .flash-error { background: #fee2e2; color: #991b1b; }
+        .category-field select { min-height: 42px; }
+        .tag-field input { min-height: 42px; }
+        .admin-search { display: flex; gap: 8px; width: 100%; margin-top: 4px; }
+        .admin-search input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; }
+        .admin-search button { border: 0; padding: 0 16px; border-radius: 8px; background: #0f172a; color: white; font-weight: bold; cursor: pointer; }
 
         @media (max-width: 768px) {
             body { padding: 10px; }
@@ -50,7 +55,14 @@
             .header { flex-direction: column; align-items: flex-start; }
             .btn-logout { width: 100%; text-align: center; }
             .form-card { padding: 14px; }
-            .form-grid { grid-template-columns: 1fr; }
+            .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 10px; }
+            .form-grid .form-group[style*="grid-column: span 2"] { grid-column: 1 / -1 !important; }
+            .form-grid .price-field,
+            .form-grid .category-field,
+            .form-grid .tag-field { grid-column: span 1; min-width: 0; }
+            .form-group input, .form-group select { min-width: 0; width: 100%; }
+            .category-field select { min-height: 50px; font-size: 0.95rem; padding: 10px 6px; }
+            .tag-field input { min-height: 50px; font-size: 0.88rem; padding: 10px 7px; }
             .table-wrap { overflow-x: hidden; }
             table { min-width: 100%; border: 0; }
             thead { display: none; }
@@ -79,6 +91,7 @@
             .btn-edit, .btn-delete { width: 100%; }
             .modal-content { padding: 18px; }
             .form-group input, .form-group select { width: 100%; }
+            .admin-search button { padding: 0 13px; }
         }
     </style>
 </head>
@@ -99,11 +112,16 @@
 
         <div style="margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
             <label for="adminCategoryFilter" style="font-size: 0.9rem; font-weight: bold; color: #475569;">Lọc danh mục:</label>
-            <select id="adminCategoryFilter" onchange="location.href='/admin?danh_muc=' + this.value" style="padding: 10px 12px; border-radius: 8px; border: 1px solid #cbd5e1; min-width: 200px;">
+            <select id="adminCategoryFilter" onchange="location.href='/admin?danh_muc=' + this.value + '{% if search_query %}&q={{ search_query|urlencode }}{% endif %}'" style="padding: 10px 12px; border-radius: 8px; border: 1px solid #cbd5e1; min-width: 200px;">
                 {% for key, label in danh_muc_options.items() %}
                 <option value="{{ key }}" {% if selected_category == key %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
+            <form class="admin-search" method="get" action="/admin">
+                <input type="hidden" name="danh_muc" value="{{ selected_category }}">
+                <input type="search" name="q" value="{{ search_query }}" placeholder="Tìm theo tên, link hoặc tag..." aria-label="Tìm sản phẩm admin">
+                <button type="submit"><i class="fa-solid fa-magnifying-glass"></i> Tìm</button>
+            </form>
         </div>
 
         <!-- FORM THÊM SẢN PHẨM MỚI -->
@@ -116,11 +134,11 @@
                         <label>Tên Sản Phẩm:</label>
                         <input type="text" name="ten" placeholder="Nhập tên sản phẩm" required>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group price-field">
                         <label>Giá Bán (VNĐ):</label>
                         <input type="number" name="gia" placeholder="Ví dụ: 89000" required>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group price-field">
                         <label>Giá Cũ (VNĐ):</label>
                         <input type="number" name="gia_cu" placeholder="Tự tạo nếu để trống">
                     </div>
@@ -136,7 +154,7 @@
                         <label>Link Affiliate TikTok Shop:</label>
                         <input type="text" name="link_affiliate" placeholder="https://vt.tiktok.com/..." required>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group category-field">
                         <label>Danh Mục:</label>
                         <select name="danh_muc">
                             <option value="the-thao-nam">🏋️ Thể Thao Nam</option>
@@ -145,7 +163,7 @@
                             <option value="whey-tpbs">🥤 Thực Phẩm Bổ Sung - Whey</option>
                         </select>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group tag-field">
                         <label>Tag Nổi Bật:</label>
                         <input type="text" name="tag" value="Hot" placeholder="VD: Hot, New, Sale, Best, Flash">
                     </div>
@@ -217,11 +235,11 @@
                         <label>Tên Sản Phẩm:</label>
                         <input type="text" id="edit_ten" name="ten" required>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group price-field">
                         <label>Giá Bán (VNĐ):</label>
                         <input type="number" id="edit_gia" name="gia" required>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group price-field">
                         <label>Giá Cũ (VNĐ):</label>
                         <input type="number" id="edit_gia_cu" name="gia_cu">
                     </div>
@@ -238,7 +256,7 @@
                         <label>Link Affiliate TikTok Shop:</label>
                         <input type="text" id="edit_link_affiliate" name="link_affiliate" required>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group category-field">
                         <label>Danh Mục:</label>
                         <select id="edit_danh_muc" name="danh_muc">
                             <option value="the-thao-nam">🏋️ Thể Thao Nam</option>
@@ -247,7 +265,7 @@
                             <option value="whey-tpbs">🥤 Thực Phẩm Bổ Sung - Whey</option>
                         </select>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group tag-field">
                         <label>Tag Nổi Bật:</label>
                         <input type="text" id="edit_tag" name="tag" placeholder="VD: Hot, New, Sale, Best, Flash">
                     </div>
