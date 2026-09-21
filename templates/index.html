@@ -1,129 +1,306 @@
+def init_db():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS san_pham (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ten TEXT NOT NULL,
+            gia INTEGER NOT NULL,
+            gia_cu INTEGER,
+            anh TEXT NOT NULL,
+            link_affiliate TEXT NOT NULL,
+            danh_muc TEXT DEFAULT 'the-thao-nam',
+            tag TEXT DEFAULT '-20%'
+        )
+    ''')
+    
+    # Kiểm tra xem bảng có đang trống hay không để tự động nạp lại 11 sản phẩm mẫu
+    cursor.execute('SELECT COUNT(*) FROM san_pham')
+    count = cursor.fetchone()[0]
+    if count == 0:
+        san_pham_mau = [
+            ("Áo Thun Thể Thao Nam Vải Poly Cao Cấp", 89000, 120000, "https://images.unsplash.com/photo-1581655353564-df123a1eb820", "https://vt.tiktok.com/", "the-thao-nam", "-25%"),
+            ("Quần Short Gym Nam Có Túi Kéo Khóa", 99000, 150000, "https://images.unsplash.com/photo-1517445312882-bc9910d016b7", "https://vt.tiktok.com/", "the-thao-nam", "-33%"),
+            ("Áo Khoác Chạy Bộ Nam - Dài Tay Cao Cấp", 169000, 220000, "https://images.unsplash.com/photo-1556905055-8f358a7a47b2", "https://vt.tiktok.com/", "the-thao-nam", "-23%"),
+            ("Bộ Quần Áo Tập Gym Nam Thể Thao Mùa Hè", 199000, 280000, "https://images.unsplash.com/photo-1534438327276-14e5300c3a48", "https://vt.tiktok.com/", "the-thao-nam", "-28%"),
+            ("Áo Tập Yoga Nữ Không Gọng Tôn Dáng", 89000, 130000, "https://images.unsplash.com/photo-1518310383802-640c2de311b2", "https://vt.tiktok.com/", "the-thao-nu", "-31%"),
+            ("Quần Legging Nữ Cạp Cao Nâng Mông", 109000, 160000, "https://images.unsplash.com/photo-1506126613408-eca07ce68773", "https://vt.tiktok.com/", "the-thao-nu", "-31%"),
+            ("Áo Khoác Gió Thể Thao Nữ Chống Nước Nhẹ", 159000, 220000, "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b", "https://vt.tiktok.com/", "the-thao-nu", "-27%"),
+            ("Băng Quấn Cổ Tay Tập Gym Chống Trượt", 45000, 70000, "https://images.unsplash.com/photo-1584735935682-2f2b69dff9d2", "https://vt.tiktok.com/", "the-thao-nu", "-35%"),
+            ("Đai Lưng Tập Gym Bảo Vệ Cột Sống", 225000, 320000, "https://images.unsplash.com/photo-1517838277536-f5f99be501cd", "https://vt.tiktok.com/", "phu-kien", "-30%"),
+            ("Thảm Tập Yoga Cao Su Non Chống Trượt", 140000, 200000, "https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f", "https://vt.tiktok.com/", "phu-kien", "-30%"),
+            ("Bột Whey Protein Hỗ Trợ Tăng Cơ Giảm Mỡ", 650000, 850000, "https://images.unsplash.com/photo-1579722883378-7634e4096053", "https://vt.tiktok.com/", "whey-tpbs", "-23%")
+        ]
+        cursor.executemany('''
+            INSERT INTO san_pham (ten, gia, gia_cu, anh, link_affiliate, danh_muc, tag)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', san_pham_mau)
+        conn.commit()
+        
+    conn.close()
 <!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lý Thức Store V2</title>
+    <title>LÝ THỨC STORE - TikTok Shop</title>
+    <!-- FontAwesome cho icon Zalo, Messenger, TikTok -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            max-width: 1200px; 
-            margin: 0 auto; 
-            padding: 20px; 
-            background-color: #f5f5f5; 
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-
+        body {
+            background-color: #f8fafc;
+            color: #334155;
+            padding-bottom: 50px;
+        }
         .header-container {
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            color: white;
             text-align: center;
-            margin-bottom: 25px;
+            padding: 40px 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             position: relative;
         }
-
+        .header-container h1 {
+            font-size: 2.2rem;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+        .header-container p {
+            color: #94a3b8;
+            font-size: 1rem;
+        }
         .admin-link {
             position: absolute;
-            right: 10px;
-            top: 0;
-            color: #666;
-            text-decoration: none;
-            font-size: 13px;
-        }
-        .admin-link:hover { text-decoration: underline; }
-
-        /* Hiệu ứng bong bóng Zalo tự bay nhấp nhô */
-        .zalo-bubble {
-            position: fixed;
-            bottom: 20px;
+            top: 20px;
             right: 20px;
-            z-index: 9999;
-            animation: floatAnimation 3s ease-in-out infinite;
-            transition: transform 0.3s ease;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: background 0.3s;
+        }
+        .admin-link:hover {
+            background: rgba(255, 255, 255, 0.2);
         }
 
-        .zalo-bubble:hover {
-            transform: scale(1.1) rotate(5deg);
+        /* Lưới sản phẩm */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 25px;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
         }
-
-        @keyframes floatAnimation {
-            0% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
-            100% { transform: translateY(0px); }
+        .product-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
         }
-
-        .grid-container { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); 
-            gap: 20px; 
-            margin-top: 20px; 
-        }
-
-        .grid-container > div {
-            animation: fadeInProduct 0.6s cubic-bezier(0.25, 1, 0.5, 1);
-        }
-
-        @keyframes fadeInProduct {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .product-card { 
-            background: #fff; 
-            padding: 15px; 
-            border-radius: 8px; 
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
-            text-align: center; 
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
         .product-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+            transform: translateY(-6px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .product-card img {
+            width: 100%;
+            height: 220px;
+            object-fit: cover;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .product-info {
+            padding: 15px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .product-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 10px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .price-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .price-new {
+            color: #ef4444;
+            font-size: 1.15rem;
+            font-weight: bold;
+        }
+        .price-old {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            text-decoration: line-through;
         }
 
-        .product-card img { 
-            width: 100%; 
-            height: 280px; 
-            object-fit: cover; 
-            border-radius: 4px; 
+        /* --- HIỆU ỨNG MỀM MẠI CHO NÚT TIKTOK SHOP --- */
+        .tiktok-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: linear-gradient(135deg, #000000, #25f4ee);
+            color: white;
+            text-decoration: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            box-shadow: 0 4px 12px rgba(37, 244, 238, 0.2);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .tiktok-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: 0.5s;
+        }
+        .tiktok-btn:hover::before {
+            left: 100%;
+        }
+        .tiktok-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(37, 244, 238, 0.4);
+            background: linear-gradient(135deg, #25f4ee, #fe2c55);
+            color: #000;
         }
 
-        .price { 
-            color: #dc2626; 
-            font-weight: bold; 
-            font-size: 18px; 
-            margin: 10px 0; 
+        /* --- CỤM NÚT LIÊN HỆ NỔI (ZALO & MESSENGER) CÓ HIỆU ỨNG SÓNG TỎA --- */
+        .floating-contact {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 999;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
         }
-
-        .buy-btn { 
-            display: inline-block; 
-            background: #fe2c55; 
-            color: white; 
-            padding: 8px 15px; 
-            text-decoration: none; 
-            border-radius: 4px; 
-            font-weight: bold; 
-            transition: background 0.2s;
+        .float-btn {
+            width: 58px;
+            height: 58px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 26px;
+            text-decoration: none;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+            position: relative;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-
-        .buy-btn:hover { background: #e02447; }
+        .float-btn:hover {
+            transform: scale(1.12);
+        }
+        .messenger-btn {
+            background: #0084ff;
+        }
+        .zalo-btn {
+            background: #0068ff;
+            font-weight: bold;
+            font-size: 15px;
+        }
+        /* Hiệu ứng sóng tỏa lan ra (Pulse) */
+        .pulse-ring {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 50%;
+            animation: pulse-animation 1.8s infinite cubic-bezier(0.4, 0, 0.6, 1);
+            z-index: -1;
+        }
+        .messenger-btn .pulse-ring {
+            background: rgba(0, 132, 255, 0.45);
+        }
+        .zalo-btn .pulse-ring {
+            background: rgba(0, 104, 255, 0.45);
+        }
+        @keyframes pulse-animation {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1.7);
+                opacity: 0;
+            }
+        }
     </style>
 </head>
 <body>
 
     <div class="header-container">
-        <a href="/login" class="admin-link">Quản trị Admin</a>
-        <h1 style="color: #333; margin-bottom: 5px;">LÝ THỨC STORE V2</h1>
-        <p style="color: #666; margin: 0;">Dữ liệu tải trực tiếp từ Cơ sở dữ liệu SQLite</p>
+        <a href="/admin" class="admin-link"><i class="fa-solid fa-lock"></i> Quản Trị</a>
+        <h1>LÝ THỨC STORE</h1>
+        <p>Hệ thống mua sắm chính hãng tích hợp TikTok Shop ưu đãi tốt nhất</p>
     </div>
 
     <div class="grid-container">
         {% for sp in san_pham %}
         <div class="product-card">
             <img src="{{ sp.anh }}" alt="{{ sp.ten }}">
-            <h3 style="font-size: 15px; height: 40px; overflow: hidden; color: #1f2937; margin: 10px 0;">{{ sp.ten }}</h3>
-            <p class="price">{{ sp.gia }}</p>
-            <a href="{{ sp.link_affiliate }}" target="_blank" class="buy-btn">MUA TRÊN TIKTOK SHOP</a>
+            <div class="product-info">
+                <div>
+                    <div class="product-title">{{ sp.ten }}</div>
+                    <div class="price-box">
+                        <span class="price-new">{{ sp.gia_formatted }}</span>
+                        {% if sp.gia_cu_formatted %}
+                        <span class="price-old">{{ sp.gia_cu_formatted }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <!-- Nút TikTok Shop mượt mà, chuyển màu uyển chuyển -->
+                <a href="{{ sp.link_affiliate }}" target="_blank" class="tiktok-btn">
+                    <i class="fa-brands fa-tiktok"></i> MUA TRÊN TIKTOK SHOP
+                </a>
+            </div>
         </div>
         {% endfor %}
+    </div>
+
+    <!-- CỤM NÚT LIÊN HỆ NỔI (ZALO & MESSENGER) CÓ SÓNG TỎA -->
+    <div class="floating-contact">
+        <!-- Thay link m.me/... bằng link Messenger của anh -->
+        <a href="https://m.me/your_fanpage" target="_blank" class="float-btn messenger-btn" title="Chat qua Messenger">
+            <i class="fa-brands fa-facebook-messenger"></i>
+            <div class="pulse-ring"></div>
+        </a>
+        <!-- Thay zalo.me/... bằng số điện thoại Zalo của anh -->
+        <a href="https://zalo.me/your_phone_number" target="_blank" class="float-btn zalo-btn" title="Chat qua Zalo">
+            <span>Zalo</span>
+            <div class="pulse-ring"></div>
+        </a>
     </div>
 
 </body>
