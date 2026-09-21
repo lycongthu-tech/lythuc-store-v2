@@ -3,9 +3,18 @@ from werkzeug.utils import secure_filename
 import os
 import sqlite3
 import time
+import cloudinary
+import cloudinary.uploader
 
 app = Flask(__name__)
 app.secret_key = 'lythucstore_secret_key_2026'
+
+cloudinary.config(
+    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.environ.get('CLOUDINARY_API_KEY'),
+    api_secret=os.environ.get('CLOUDINARY_API_SECRET'),
+    secure=True
+)
 
 UPLOAD_FOLDER = 'static/uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -29,11 +38,20 @@ def save_uploaded_image(file_storage):
     if not filename:
         return None
 
-    name, ext = os.path.splitext(filename)
-    unique_name = f"{int(time.time() * 1000)}_{name[:80]}{ext}"
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_name)
-    file_storage.save(file_path)
-    return f"/static/uploads/{unique_name}"
+    try:
+        result = cloudinary.uploader.upload(
+            file_storage,
+            folder='lythuc_store/products',
+            resource_type='image'
+        )
+        return result.get('secure_url') or result.get('url')
+    except Exception:
+        # Fallback to local upload nếu Cloudinary chưa được cấu hình
+        name, ext = os.path.splitext(filename)
+        unique_name = f"{int(time.time() * 1000)}_{name[:80]}{ext}"
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_name)
+        file_storage.save(file_path)
+        return f"/static/uploads/{unique_name}"
 
 
 def get_db_connection():
