@@ -201,7 +201,7 @@ def init_db():
             ("Thảm Tập Yoga Cao Su Non Chống Trượt", 140000, 200000, "https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f", "https://vt.tiktok.com/", "phu-kien", "-30%"),
             ("Bột Whey Protein Hỗ Trợ Tăng Cơ Giảm Mỡ", 650000, 850000, "https://images.unsplash.com/photo-1579722883378-7634e4096053", "https://vt.tiktok.com/", "whey-tpbs", "-23%")
         ]
-        cursor.executemany('''
+        conn.executemany('''
             INSERT INTO san_pham (ten, gia, gia_cu, anh, link_affiliate, danh_muc, tag)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         ''', san_pham_mau)
