@@ -1,13 +1,37 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
+from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 import os
 import sqlite3
 import time
+import secrets
 import cloudinary
 import cloudinary.uploader
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 app = Flask(__name__)
-app.secret_key = 'lythucstore_secret_key_2026'
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-only-change-this-secret')
+ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'thuc')
+ADMIN_PASSWORD_HASH = os.environ.get('ADMIN_PASSWORD_HASH') or generate_password_hash(
+    os.environ.get('ADMIN_PASSWORD', '123456')
+)
+
+
+def generate_csrf_token():
+    if 'csrf_token' not in session:
+        session['csrf_token'] = secrets.token_hex(32)
+    return session['csrf_token']
+
+
+@app.before_request
+def validate_csrf():
+    if request.method == 'POST' and request.endpoint in {'add_product', 'edit_product', 'delete_product'}:
+        token = request.form.get('csrf_token')
+        if not token or token != session.get('csrf_token'):
+            flash('Phiên làm việc đã hết hạn hoặc request không hợp lệ.', 'error')
+            return redirect(url_for('admin'))
+
 
 cloudinary.config(
     cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
@@ -16,11 +40,19 @@ cloudinary.config(
     secure=True
 )
 
+DATABASE_URL = os.environ.get('DATABASE_URL')
+IS_PRODUCTION = os.environ.get('RENDER') == 'true' or os.environ.get('FLASK_ENV') == 'production'
+HAS_CLOUDINARY_CONFIG = all([
+    os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    os.environ.get('CLOUDINARY_API_KEY'),
+    os.environ.get('CLOUDINARY_API_SECRET'),
+])
+
 UPLOAD_FOLDER = 'static/uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-DATABASE = 'dulieu.db'
+DATABASE = os.path.join(app.root_path, 'dulieu.db')
 CATEGORY_LABELS = {
     'all': 'Tất cả',
     'the-thao-nam': 'Thể thao nam',
@@ -39,6 +71,8 @@ def save_uploaded_image(file_storage):
         return None
 
     try:
+        if not HAS_CLOUDINARY_CONFIG and IS_PRODUCTION:
+            raise RuntimeError('Cloudinary chưa được cấu hình trên môi trường production.')
         result = cloudinary.uploader.upload(
             file_storage,
             folder='lythuc_store/products',
@@ -46,7 +80,10 @@ def save_uploaded_image(file_storage):
         )
         return result.get('secure_url') or result.get('url')
     except Exception:
-        # Fallback to local upload nếu Cloudinary chưa được cấu hình
+        if IS_PRODUCTION:
+            raise
+
+        # Chỉ fallback local khi chạy development; filesystem Render không bền vững.
         name, ext = os.path.splitext(filename)
         unique_name = f"{int(time.time() * 1000)}_{name[:80]}{ext}"
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_name)
@@ -55,30 +92,84 @@ def save_uploaded_image(file_storage):
 
 
 def get_db_connection():
+    if DATABASE_URL:
+        postgres_url = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+        return PostgresConnection(psycopg2.connect(postgres_url))
+
+    if IS_PRODUCTION:
+        raise RuntimeError('DATABASE_URL chưa được cấu hình trên môi trường production.')
+
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+class PostgresConnection:
+    def __init__(self, connection):
+        self.connection = connection
+
+    @staticmethod
+    def _convert_placeholders(query):
+        return query.replace('?', '%s')
+
+    def execute(self, query, parameters=()):
+        cursor = self.connection.cursor(cursor_factory=RealDictCursor)
+        cursor.execute(self._convert_placeholders(query), parameters)
+        return cursor
+
+    def executemany(self, query, parameters):
+        cursor = self.connection.cursor()
+        cursor.executemany(self._convert_placeholders(query), parameters)
+        return cursor
+
+    def cursor(self):
+        return self.connection.cursor(cursor_factory=RealDictCursor)
+
+    def commit(self):
+        self.connection.commit()
+
+    def close(self):
+        self.connection.close()
 
 
 def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS san_pham (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            ten TEXT NOT NULL,
-            gia INTEGER NOT NULL,
-            gia_cu INTEGER,
-            anh TEXT NOT NULL,
-            link_affiliate TEXT NOT NULL,
-            danh_muc TEXT DEFAULT 'the-thao-nam',
-            tag TEXT DEFAULT '-20%'
-        )
-    ''')
+    if DATABASE_URL:
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS san_pham (
+                id SERIAL PRIMARY KEY,
+                ten TEXT NOT NULL,
+                gia INTEGER NOT NULL,
+                gia_cu INTEGER,
+                anh TEXT NOT NULL,
+                link_affiliate TEXT NOT NULL,
+                danh_muc TEXT DEFAULT 'the-thao-nam',
+                tag TEXT DEFAULT '-20%'
+            )
+        ''')
+    else:
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS san_pham (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ten TEXT NOT NULL,
+                gia INTEGER NOT NULL,
+                gia_cu INTEGER,
+                anh TEXT NOT NULL,
+                link_affiliate TEXT NOT NULL,
+                danh_muc TEXT DEFAULT 'the-thao-nam',
+                tag TEXT DEFAULT '-20%'
+            )
+        ''')
     conn.commit()
 
-    existing_columns = [row[1] for row in cursor.execute('PRAGMA table_info(san_pham)').fetchall()]
+    if DATABASE_URL:
+        existing_columns = [row['column_name'] for row in cursor.execute(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = 'san_pham'"
+        ).fetchall()]
+    else:
+        existing_columns = [row[1] for row in cursor.execute('PRAGMA table_info(san_pham)').fetchall()]
     for column_name, column_type in [
         ('gia_cu', 'INTEGER'),
         ('link_affiliate', 'TEXT'),
@@ -92,8 +183,9 @@ def init_db():
             except Exception:
                 pass
 
-    cursor.execute('SELECT COUNT(*) FROM san_pham')
-    count = cursor.fetchone()[0]
+    cursor.execute('SELECT COUNT(*) AS count FROM san_pham')
+    count_row = cursor.fetchone()
+    count = count_row['count'] if DATABASE_URL else count_row[0]
     if count == 0:
         san_pham_mau = [
             ("Áo Thun Thể Thao Nam Vải Poly Cao Cấp", 89000, 120000, "https://images.unsplash.com/photo-1581655353564-df123a1eb820", "https://vt.tiktok.com/", "the-thao-nam", "-25%"),
@@ -171,7 +263,7 @@ def login():
     if request.method == 'POST':
         ten_dang_nhap = request.form.get('ten_dang_nhap')
         mat_khau = request.form.get('mat_khau')
-        if ten_dang_nhap == 'thuc' and mat_khau == '123456':
+        if ten_dang_nhap == ADMIN_USERNAME and check_password_hash(ADMIN_PASSWORD_HASH, mat_khau or ''):
             session['logged_in'] = True
             return redirect(url_for('admin'))
         error = 'Tên đăng nhập hoặc mật khẩu không đúng!'
@@ -219,7 +311,8 @@ def admin():
         'admin.html',
         san_pham=danh_sach,
         danh_muc_options=CATEGORY_LABELS,
-        selected_category=selected_category
+        selected_category=selected_category,
+        csrf_token=generate_csrf_token()
     )
 
 
@@ -285,7 +378,7 @@ def edit_product(id):
     return redirect(url_for('admin'))
 
 
-@app.route('/admin/delete/<int:id>')
+@app.route('/admin/delete/<int:id>', methods=['POST'])
 def delete_product(id):
     if not session.get('logged_in'):
         return redirect(url_for('login'))

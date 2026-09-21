@@ -104,6 +104,10 @@
             font-size: 0.7rem;
             letter-spacing: 0.05em;
             text-transform: uppercase;
+            background: rgba(255,255,255,0.18);
+            padding: 3px 5px;
+            border-radius: 999px;
+            animation: tagPulse 1.4s ease-in-out infinite;
         }
         .discount-badge .percent-text {
             font-size: 0.7rem;
@@ -112,6 +116,10 @@
         @keyframes discountFloat {
             0%, 100% { transform: translateY(0) scale(1); }
             50% { transform: translateY(-2px) scale(1.05); }
+        }
+        @keyframes tagPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.08); opacity: 0.9; }
         }
         .product-card img {
             width: 100%;

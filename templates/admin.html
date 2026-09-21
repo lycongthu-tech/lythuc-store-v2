@@ -100,6 +100,7 @@
         <div class="form-card">
             <h3 style="margin-bottom: 15px; color: #1e293b;"><i class="fa-solid fa-plus-circle"></i> Thêm Sản Phẩm Mới</h3>
             <form action="/admin/add" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <div class="form-grid">
                     <div class="form-group" style="grid-column: span 2;">
                         <label>Tên Sản Phẩm:</label>
@@ -135,8 +136,8 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Tag Giảm Giá:</label>
-                        <input type="text" name="tag" value="-20%">
+                        <label>Tag Nổi Bật:</label>
+                        <input type="text" name="tag" value="Hot" placeholder="VD: Hot, New, Sale, Best, Flash">
                     </div>
                 </div>
                 <button type="submit" class="btn-add"><i class="fa-solid fa-floppy-disk"></i> THÊM SẢN PHẨM</button>
@@ -179,9 +180,12 @@
                             <i class="fa-solid fa-pen-to-square"></i> Sửa
                         </button>
                         
-                        <a href="/admin/delete/{{ item.id }}" class="btn-delete" onclick="return confirm('Bạn có chắc chắn muốn xóa không?');">
-                            <i class="fa-solid fa-trash"></i> Xóa
-                        </a>
+                        <form action="/admin/delete/{{ item.id }}" method="POST" style="display: inline;" onsubmit="return confirm('Bạn có chắc chắn muốn xóa không?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <button type="submit" class="btn-delete">
+                                <i class="fa-solid fa-trash"></i> Xóa
+                            </button>
+                        </form>
                     </td>
                 </tr>
                 {% endfor %}
@@ -197,6 +201,7 @@
                 <span class="close-btn" onclick="closeEditModal()">&times;</span>
             </div>
             <form id="editForm" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <div class="form-grid">
                     <div class="form-group" style="grid-column: span 2;">
                         <label>Tên Sản Phẩm:</label>
@@ -233,8 +238,8 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Tag Giảm Giá:</label>
-                        <input type="text" id="edit_tag" name="tag">
+                        <label>Tag Nổi Bật:</label>
+                        <input type="text" id="edit_tag" name="tag" placeholder="VD: Hot, New, Sale, Best, Flash">
                     </div>
                 </div>
                 <button type="submit" class="btn-add" style="background: #2563eb; margin-top: 10px;">
