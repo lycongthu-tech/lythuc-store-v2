@@ -231,28 +231,34 @@
         <p>Hệ thống mua sắm chính hãng tích hợp TikTok Shop ưu đãi tốt nhất</p>
     </div>
 
-    <div class="grid-container">
-        {% for sp in san_pham %}
-        <div class="product-card">
+   <div class="grid-container">
+    {% for sp in san_pham %}
+    <div class="product-card">
+        <!-- Thẻ a bọc từ ảnh xuống tên -->
+        <a href="{{ sp.link_affiliate }}" target="_blank" style="text-decoration: none; color: inherit; display: block;">
             <img src="{{ sp.anh }}" alt="{{ sp.ten }}">
             <div class="product-info">
                 <div>
                     <div class="product-title">{{ sp.ten }}</div>
-                    <div class="price-box">
-                        <span class="price-new">{{ sp.gia_formatted }}</span>
-                        {% if sp.gia_cu_formatted %}
-                        <span class="price-old">{{ sp.gia_cu_formatted }}</span>
-                        {% endif %}
-                    </div>
                 </div>
-                <!-- Nút TikTok Shop mượt mà, chuyển màu uyển chuyển -->
-                <a href="{{ sp.link_affiliate }}" target="_blank" class="tiktok-btn">
-                    <i class="fa-brands fa-tiktok"></i> MUA TRÊN TIKTOK SHOP
-                </a>
             </div>
+        </a>
+
+        <!-- Giá sản phẩm -->
+        <div class="product-price-box" style="padding: 0 10px;">
+            <span class="price-new">{{ sp.gia_formatted }}</span>
+            {% if sp.gia_cu_formatted %}
+            <span class="price-old">{{ sp.gia_cu_formatted }}</span>
+            {% endif %}
         </div>
-        {% endfor %}
+
+        <!-- Nút mua hàng -->
+        <a href="{{ sp.link_affiliate }}" target="_blank" class="buy-btn">
+            <i class="fa-brands fa-tiktok"></i> MUA TRÊN TIKTOK SHOP
+        </a>
     </div>
+    {% endfor %}
+</div>
 
     <!-- CỤM NÚT LIÊN HỆ NỔI (ZALO & MESSENGER) CÓ SÓNG TỎA -->
     <div class="floating-contact">
