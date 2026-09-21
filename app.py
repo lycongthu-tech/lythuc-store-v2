@@ -275,7 +275,7 @@ def index():
 @app.route('/api/search')
 def search_products():
     search_query = request.args.get('q', '').strip()
-    if len(search_query) < 2:
+    if not search_query:
         return jsonify([])
 
     conn = get_db_connection()

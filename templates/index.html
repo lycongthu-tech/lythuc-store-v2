@@ -494,6 +494,7 @@
         const productSearch = document.getElementById('productSearch');
         const searchSuggestions = document.getElementById('searchSuggestions');
         let searchTimer;
+        let activeSearchController;
 
         function hideSuggestions() {
             searchSuggestions.innerHTML = '';
@@ -540,17 +541,21 @@
         productSearch.addEventListener('input', () => {
             clearTimeout(searchTimer);
             const query = productSearch.value.trim();
-            if (query.length < 2) {
+            if (activeSearchController) activeSearchController.abort();
+            if (!query) {
                 hideSuggestions();
                 return;
             }
             searchTimer = setTimeout(async () => {
+                activeSearchController = new AbortController();
                 try {
-                    const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+                    const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
+                        signal: activeSearchController.signal
+                    });
                     if (!response.ok) throw new Error('Search request failed');
                     showSuggestions(await response.json());
                 } catch (error) {
-                    hideSuggestions();
+                    if (error.name !== 'AbortError') hideSuggestions();
                 }
             }, 180);
         });
