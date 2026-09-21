@@ -3,62 +3,215 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trang Quản Trị - Lý Thức Store</title>
+    <title>Quản Trị Admin - LÝ THỨC STORE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background: #f4f6f9; }
-        .box { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        h2 { margin-top: 0; color: #333; }
-        input { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        button { background: #22c55e; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; }
-        button:hover { background: #16a34a; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 14px; }
-        th { background: #f8fafc; }
-        .btn-delete { background: #ef4444; color: white; padding: 5px 10px; text-decoration: none; border-radius: 4px; font-size: 12px; }
-        .btn-home { display: inline-block; margin-bottom: 15px; color: #0284c7; text-decoration: none; font-weight: bold; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Roboto', sans-serif; background: #f4f6f9; color: #333; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #eee; }
+        .header h2 { color: #d92d20; }
+        .btn-logout { background: #64748b; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: bold; }
+        
+        /* FORM THÊM SẢN PHẨM */
+        .form-card { background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 30px; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
+        .form-group { display: flex; flex-direction: column; gap: 5px; }
+        .form-group label { font-size: 0.85rem; font-weight: bold; color: #475569; }
+        .form-group input, .form-group select { padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.9rem; }
+        .btn-add { background: #16a34a; color: white; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; }
+        
+        /* BẢNG SẢN PHẨM */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; }
+        th { background: #f1f5f9; color: #334155; font-weight: bold; }
+        .img-thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 6px; }
+        
+        /* NÚT THAO TÁC */
+        .btn-edit { background: #2563eb; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; text-decoration: none; margin-right: 5px; }
+        .btn-delete { background: #dc2626; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; text-decoration: none; }
+        
+        /* MODAL POPUP CHỈNH SỬA */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; }
+        .modal-content { background: white; padding: 25px; border-radius: 10px; width: 90%; max-width: 600px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .close-btn { font-size: 24px; cursor: pointer; color: #64748b; }
     </style>
 </head>
 <body>
 
-    <a href="/" class="btn-home">← Quay lại trang chủ Store</a>
+    <div class="container">
+        <div class="header">
+            <h2><i class="fa-solid fa-boxes-packing"></i> QUẢN LÝ SẢN PHẨM</h2>
+            <a href="/logout" class="btn-logout"><i class="fa-solid fa-right-from-bracket"></i> Đăng xuất</a>
+        </div>
 
-    <!-- FORM THÊM SẢN PHẨM MỚI -->
-    <div class="box">
-        <h2>Thêm Sản Phẩm Mới</h2>
-        <form action="/admin" method="POST">
-            <input type="text" name="ten" placeholder="Tên sản phẩm" required>
-            <input type="text" name="gia" placeholder="Giá (ví dụ: 99.000đ)" required>
-            <input type="text" name="danh_muc" placeholder="Danh mục (ví dụ: Thời trang)">
-            <input type="text" name="link_affiliate" placeholder="Link Affiliate TikTok/Shopee" required>
-            <input type="text" name="anh" placeholder="Link hình ảnh (URL)" required>
-            <button type="submit">ĐĂNG SẢN PHẨM</button>
-        </form>
-    </div>
+        <!-- FORM THÊM SẢN PHẨM MỚI -->
+        <div class="form-card">
+            <h3 style="margin-bottom: 15px; color: #1e293b;"><i class="fa-solid fa-plus-circle"></i> Thêm Sản Phẩm Mới</h3>
+            <form action="/admin/add" method="POST">
+                <div class="form-grid">
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Tên Sản Phẩm:</label>
+                        <input type="text" name="ten" placeholder="Nhập tên sản phẩm" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Giá Bán (VNĐ):</label>
+                        <input type="number" name="gia" placeholder="Ví dụ: 89000" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Giá Cũ (VNĐ):</label>
+                        <input type="number" name="gia_cu" placeholder="Tự tạo nếu để trống">
+                    </div>
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Link Ảnh (URL):</label>
+                        <input type="text" name="anh" placeholder="https://..." required>
+                    </div>
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Link Affiliate TikTok Shop:</label>
+                        <input type="text" name="link_affiliate" placeholder="https://vt.tiktok.com/..." required>
+                    </div>
+                    <div class="form-group">
+                        <label>Danh Mục:</label>
+                        <select name="danh_muc">
+                            <option value="the-thao-nam">🏋️ Thể Thao Nam</option>
+                            <option value="the-thao-nu">🧘 Thể Thao Nữ</option>
+                            <option value="phu-kien">🥊 Phụ Kiện & Dụng Cụ</option>
+                            <option value="whey-tpbs">🥤 Thực Phẩm Bổ Sung - Whey</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Tag Giảm Giá:</label>
+                        <input type="text" name="tag" value="-20%">
+                    </div>
+                </div>
+                <button type="submit" class="btn-add"><i class="fa-solid fa-floppy-disk"></i> THÊM SẢN PHẨM</button>
+            </form>
+        </div>
 
-    <!-- DANH SÁCH QUẢN LÝ SẢN PHẨM -->
-    <div class="box">
-        <h2>Danh Sách Sản Phẩm Hiện Có</h2>
+        <!-- BẢNG DANH SÁCH SẢN PHẨM[span_1](start_span)[span_1](end_span) -->
+        <h3 style="margin-bottom: 15px; color: #1e293b;"><i class="fa-solid fa-list"></i> Danh Sách Sản Phẩm Có Hẳn Chức Năng Sửa</h3>
         <table>
-            <tr>
-                <th>Ảnh</th>
-                <th>Tên sản phẩm</th>
-                <th>Giá</th>
-                <th>Danh mục</th>
-                <th>Hành động</th>
-            </tr>
-            {% for sp in san_pham %}
-            <tr>
-                <td><img src="{{ sp.anh }}" width="50" height="50" style="object-fit:cover;"></td>
-                <td>{{ sp.ten }}</td>
-                <td>{{ sp.gia }}</td>
-                <td>{{ sp.danh_muc }}</td>
-                <td>
-                    <a href="/admin/xoa/{{ sp.id }}" class="btn-delete" onclick="return confirm('Anh có chắc muốn xóa sản phẩm này?');">Xóa</a>
-                </td>
-            </tr>
-            {% endfor %}
+            <thead>
+                <tr>
+                    <th>Ảnh</th>
+                    <th>Tên Sản Phẩm</th>
+                    <th>Giá Bán</th>
+                    <th>Giá Cũ</th>
+                    <th>Danh Mục</th>
+                    <th>Thao Tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in san_pham %}
+                <tr>
+                    <td><img src="{{ item.anh }}" class="img-thumb" alt="thumb"></td>
+                    <td style="font-weight: 500;">{{ item.ten }}</td>
+                    <td style="color: #d92d20; font-weight: bold;">{{ item.gia_formatted }}</td>
+                    <td style="color: #94a3b8; text-decoration: line-through;">{{ item.gia_cu_formatted }}</td>
+                    <td><span style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">{{ item.danh_muc }}</span></td>
+                    <td>
+                        <!-- DÙNG DATA ATTRIBUTE ĐỂ TRUYỀN DỮ LIỆU ANH TOÀN TUYỆT ĐỐI -->
+                        <button class="btn-edit" 
+                            data-id="{{ item.id }}" 
+                            data-ten="{{ item.ten }}" 
+                            data-gia="{{ item.gia }}" 
+                            data-giacu="{{ item.gia_cu }}" 
+                            data-anh="{{ item.anh }}" 
+                            data-link="{{ item.link_affiliate }}" 
+                            data-danhmuc="{{ item.danh_muc }}" 
+                            data-tag="{{ item.tag }}" 
+                            onclick="openEditFromData(this)">
+                            <i class="fa-solid fa-pen-to-square"></i> Sửa
+                        </button>
+                        
+                        <a href="/admin/delete/{{ item.id }}" class="btn-delete" onclick="return confirm('Bạn có chắc chắn muốn xóa không?');">
+                            <i class="fa-solid fa-trash"></i> Xóa
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
         </table>
     </div>
 
+    <!-- MODAL POPUP CHỈNH SỬA SẢN PHẨM -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-pen-to-square"></i> Chỉnh Sửa Sản Phẩm</h3>
+                <span class="close-btn" onclick="closeEditModal()">&times;</span>
+            </div>
+            <form id="editForm" method="POST">
+                <div class="form-grid">
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Tên Sản Phẩm:</label>
+                        <input type="text" id="edit_ten" name="ten" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Giá Bán (VNĐ):</label>
+                        <input type="number" id="edit_gia" name="gia" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Giá Cũ (VNĐ):</label>
+                        <input type="number" id="edit_gia_cu" name="gia_cu">
+                    </div>
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Link Ảnh (URL):</label>
+                        <input type="text" id="edit_anh" name="anh" required>
+                    </div>
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Link Affiliate TikTok Shop:</label>
+                        <input type="text" id="edit_link_affiliate" name="link_affiliate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Danh Mục:</label>
+                        <select id="edit_danh_muc" name="danh_muc">
+                            <option value="the-thao-nam">🏋️ Thể Thao Nam</option>
+                            <option value="the-thao-nu">🧘 Thể Thao Nữ</option>
+                            <option value="phu-kien">🥊 Phụ Kiện & Dụng Cụ</option>
+                            <option value="whey-tpbs">🥤 Thực Phẩm Bổ Sung - Whey</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Tag Giảm Giá:</label>
+                        <input type="text" id="edit_tag" name="tag">
+                    </div>
+                </div>
+                <button type="submit" class="btn-add" style="background: #2563eb; margin-top: 10px;">
+                    <i class="fa-solid fa-floppy-disk"></i> LƯU CẬP NHẬT
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- SCRIPT XỬ LÝ NÚT SỬA -->
+    <script>
+        function openEditModal(id, ten, gia, gia_cu, anh, link_affiliate, danh_muc, tag) {
+            document.getElementById('editForm').action = '/admin/edit/' + id;
+            document.getElementById('edit_ten').value = ten;
+            document.getElementById('edit_gia').value = gia;
+            document.getElementById('edit_gia_cu').value = gia_cu;
+            document.getElementById('edit_anh').value = anh;
+            document.getElementById('edit_link_affiliate').value = link_affiliate;
+            document.getElementById('edit_danh_muc').value = danh_muc;
+            document.getElementById('edit_tag').value = tag;
+            
+            document.getElementById('editModal').style.display = 'flex';
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            const modal = document.getElementById('editModal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        }
+    </script>
 </body>
 </html>
