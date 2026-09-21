@@ -10,8 +10,8 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 # Mật khẩu quản trị (Anh có thể đổi thành mật khẩu của anh ở đây)
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "123"
+ADMIN_USERNAME = "thuc"
+ADMIN_PASSWORD = "1598thuc"
 
 class SanPham(db.Model):
     id = db.Column(db.Integer, primary_key=True)
