@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trang Quản Trị - Lý Thức Store</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f4f6f9; }
+        .box { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        h2 { margin-top: 0; color: #333; }
+        input { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { background: #22c55e; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; }
+        button:hover { background: #16a34a; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 14px; }
+        th { background: #f8fafc; }
+        .btn-delete { background: #ef4444; color: white; padding: 5px 10px; text-decoration: none; border-radius: 4px; font-size: 12px; }
+        .btn-home { display: inline-block; margin-bottom: 15px; color: #0284c7; text-decoration: none; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <a href="/" class="btn-home">← Quay lại trang chủ Store</a>
+
+    <!-- FORM THÊM SẢN PHẨM MỚI -->
+    <div class="box">
+        <h2>Thêm Sản Phẩm Mới</h2>
+        <form action="/admin" method="POST">
+            <input type="text" name="ten" placeholder="Tên sản phẩm" required>
+            <input type="text" name="gia" placeholder="Giá (ví dụ: 99.000đ)" required>
+            <input type="text" name="danh_muc" placeholder="Danh mục (ví dụ: Thời trang)">
+            <input type="text" name="link_affiliate" placeholder="Link Affiliate TikTok/Shopee" required>
+            <input type="text" name="anh" placeholder="Link hình ảnh (URL)" required>
+            <button type="submit">ĐĂNG SẢN PHẨM</button>
+        </form>
+    </div>
+
+    <!-- DANH SÁCH QUẢN LÝ SẢN PHẨM -->
+    <div class="box">
+        <h2>Danh Sách Sản Phẩm Hiện Có</h2>
+        <table>
+            <tr>
+                <th>Ảnh</th>
+                <th>Tên sản phẩm</th>
+                <th>Giá</th>
+                <th>Danh mục</th>
+                <th>Hành động</th>
+            </tr>
+            {% for sp in san_pham %}
+            <tr>
+                <td><img src="{{ sp.anh }}" width="50" height="50" style="object-fit:cover;"></td>
+                <td>{{ sp.ten }}</td>
+                <td>{{ sp.gia }}</td>
+                <td>{{ sp.danh_muc }}</td>
+                <td>
+                    <a href="/admin/xoa/{{ sp.id }}" class="btn-delete" onclick="return confirm('Anh có chắc muốn xóa sản phẩm này?');">Xóa</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+
+</body>
+</html>
