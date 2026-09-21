@@ -9,10 +9,10 @@
     
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Roboto', sans-serif; background: #f4f6f9; color: #333; padding: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #eee; }
-        .header h2 { color: #d92d20; }
+        body { font-family: 'Roboto', sans-serif; background: #f4f6f9; color: #333; padding: 12px; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #eee; }
+        .header h2 { color: #d92d20; font-size: clamp(1.2rem, 2vw, 1.8rem); }
         .btn-logout { background: #64748b; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: bold; }
         
         /* FORM THÊM SẢN PHẨM */
@@ -24,20 +24,59 @@
         .btn-add { background: #16a34a; color: white; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; }
         
         /* BẢNG SẢN PHẨM */
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; }
+        .table-wrap { width: 100%; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; min-width: 760px; }
+        th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; vertical-align: middle; }
         th { background: #f1f5f9; color: #334155; font-weight: bold; }
-        .img-thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 6px; }
+        .img-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; }
         
         /* NÚT THAO TÁC */
-        .btn-edit { background: #2563eb; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; text-decoration: none; margin-right: 5px; }
-        .btn-delete { background: #dc2626; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; text-decoration: none; }
+        .action-cell { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .btn-edit { background: #2563eb; color: white; border: none; padding: 10px 14px; border-radius: 6px; font-weight: bold; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; min-height: 42px; }
+        .btn-delete { background: #dc2626; color: white; border: none; padding: 10px 14px; border-radius: 6px; font-weight: bold; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; min-height: 42px; }
         
         /* MODAL POPUP CHỈNH SỬA */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; }
         .modal-content { background: white; padding: 25px; border-radius: 10px; width: 90%; max-width: 600px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .close-btn { font-size: 24px; cursor: pointer; color: #64748b; }
+
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .container { padding: 14px; }
+            .header { flex-direction: column; align-items: flex-start; }
+            .btn-logout { width: 100%; text-align: center; }
+            .form-card { padding: 14px; }
+            .form-grid { grid-template-columns: 1fr; }
+            .table-wrap { overflow-x: hidden; }
+            table { min-width: 100%; border: 0; }
+            thead { display: none; }
+            tbody, tr, td { display: block; width: 100%; }
+            tbody { display: flex; flex-direction: column; gap: 10px; }
+            tr { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; }
+            td {
+                display: flex; justify-content: space-between; align-items: center; gap: 12px;
+                padding: 8px 0; border: none; border-bottom: 1px solid #e2e8f0;
+            }
+            td:last-child { border-bottom: none; }
+            td::before {
+                content: attr(data-label);
+                font-weight: bold; color: #475569;
+                font-size: 0.8rem;
+                flex-shrink: 0;
+            }
+            .img-thumb { width: 56px; height: 56px; }
+            .action-cell {
+                width: 100%;
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+            }
+            .btn-edit, .btn-delete { width: 100%; }
+            .modal-content { padding: 18px; }
+            .form-group input, .form-group select { width: 100%; }
+        }
     </style>
 </head>
 <body>
@@ -120,12 +159,12 @@
             <tbody>
                 {% for item in san_pham %}
                 <tr>
-                    <td><img src="{{ item.anh }}" class="img-thumb" alt="thumb"></td>
-                    <td style="font-weight: 500;">{{ item.ten }}</td>
-                    <td style="color: #d92d20; font-weight: bold;">{{ item.gia_formatted }}</td>
-                    <td style="color: #94a3b8; text-decoration: line-through;">{{ item.gia_cu_formatted }}</td>
-                    <td><span style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">{{ item.danh_muc }}</span></td>
-                    <td>
+                    <td data-label="Ảnh"><img src="{{ item.anh }}" class="img-thumb" alt="thumb"></td>
+                    <td data-label="Tên sản phẩm" style="font-weight: 500;">{{ item.ten }}</td>
+                    <td data-label="Giá" style="color: #d92d20; font-weight: bold;">{{ item.gia_formatted }}</td>
+                    <td data-label="Giá cũ" style="color: #94a3b8; text-decoration: line-through;">{{ item.gia_cu_formatted }}</td>
+                    <td data-label="Danh mục"><span style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">{{ item.danh_muc }}</span></td>
+                    <td data-label="Thao tác" class="action-cell">
                         <!-- DÙNG DATA ATTRIBUTE ĐỂ TRUYỀN DỮ LIỆU ANH TOÀN TUYỆT ĐỐI -->
                         <button class="btn-edit" 
                             data-id="{{ item.id }}" 
