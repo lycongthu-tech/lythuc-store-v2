@@ -119,23 +119,25 @@ def admin():
     conn = get_db_connection()
     sp_db = conn.execute('SELECT * FROM san_pham ORDER BY id DESC').fetchall()
     conn.close()
-    
+
     danh_sach = []
     for item in sp_db:
+        row = dict(item)
+        gia_val = row.get('gia', 0)
+        gia_cu_val = row.get('gia_cu')
         danh_sach.append({
-            'id': item['id'],
-            'ten': item['ten'],
-            'gia': item['gia'],
-            'gia_cu': item['gia_cu'] if item['gia_cu'] else int(item['gia'] * 1.25),
-            'gia_formatted': format_gia(item['gia']),
-            'gia_cu_formatted': format_gia(item['gia_cu']) if item['gia_cu'] else format_gia(int(item['gia'] * 1.25)),
-            'anh': item['anh'],
-            'link_affiliate': item['link_affiliate'],
-            'danh_muc': item['danh_muc'],
-            'tag': item['tag']
+            'id': row.get('id'),
+            'ten': row.get('ten', ''),
+            'gia': gia_val,
+            'gia_cu': gia_cu_val if gia_cu_val else 0,
+            'gia_formatted': format_gia(gia_val),
+            'gia_cu_formatted': format_gia(gia_cu_val) if gia_cu_val else '',
+            'anh': row.get('anh', ''),
+            'link_affiliate': row.get('link_affiliate', ''),
+            'danh_muc': row.get('danh_muc', '')
         })
     
-    return render_template('admin.html', san_pham=danh_sach)
+    return render_template('admin.html', danh_sach=danh_sach)
 
 # THÊM SẢN PHẨM MỚI
 @app.route('/admin/add', methods=['POST'])
