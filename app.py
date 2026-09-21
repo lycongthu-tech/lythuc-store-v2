@@ -299,6 +299,40 @@ def search_products():
     ])
 
 
+@app.route('/api/admin-search')
+def admin_search_products():
+    if not session.get('logged_in'):
+        return jsonify([]), 401
+
+    search_query = request.args.get('q', '').strip()
+    if not search_query:
+        return jsonify([])
+
+    conn = get_db_connection()
+    rows = conn.execute('''
+        SELECT id, ten, gia, anh, danh_muc, tag
+        FROM san_pham
+        WHERE LOWER(ten) LIKE LOWER(?)
+           OR LOWER(link_affiliate) LIKE LOWER(?)
+           OR LOWER(tag) LIKE LOWER(?)
+        ORDER BY id DESC
+        LIMIT 8
+    ''', tuple([f'%{search_query}%'] * 3)).fetchall()
+    conn.close()
+
+    return jsonify([
+        {
+            'id': row['id'],
+            'ten': row['ten'],
+            'gia': format_gia(row['gia']),
+            'anh': row['anh'],
+            'danh_muc': row['danh_muc'],
+            'tag': row['tag'] or ''
+        }
+        for row in rows
+    ])
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     error = None

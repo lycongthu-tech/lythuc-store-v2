@@ -48,6 +48,14 @@
         .admin-search { display: flex; gap: 8px; width: 100%; margin-top: 4px; }
         .admin-search input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; }
         .admin-search button { border: 0; padding: 0 16px; border-radius: 8px; background: #0f172a; color: white; font-weight: bold; cursor: pointer; }
+        .admin-search-wrap { position: relative; margin: 0 0 16px; }
+        .admin-suggestions { display: none; position: absolute; top: calc(100% - 4px); left: 0; right: 0; z-index: 30; overflow: hidden; background: white; border: 1px solid #e2e8f0; border-radius: 0 0 10px 10px; box-shadow: 0 10px 22px rgba(15,23,42,0.12); }
+        .admin-suggestion { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px; border: 0; border-bottom: 1px solid #f1f5f9; background: white; color: #1e293b; text-align: left; cursor: pointer; }
+        .admin-suggestion:hover, .admin-suggestion:focus { background: #f8fafc; outline: none; }
+        .admin-suggestion img { width: 38px; height: 38px; object-fit: cover; border-radius: 6px; flex: 0 0 auto; }
+        .admin-suggestion-copy { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+        .admin-suggestion-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.88rem; font-weight: 600; }
+        .admin-suggestion-meta { color: #64748b; font-size: 0.76rem; }
 
         @media (max-width: 768px) {
             body { padding: 10px; }
@@ -117,11 +125,6 @@
                 <option value="{{ key }}" {% if selected_category == key %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
-            <form class="admin-search" method="get" action="/admin">
-                <input type="hidden" name="danh_muc" value="{{ selected_category }}">
-                <input type="search" name="q" value="{{ search_query }}" placeholder="Tìm theo tên, link hoặc tag..." aria-label="Tìm sản phẩm admin">
-                <button type="submit"><i class="fa-solid fa-magnifying-glass"></i> Tìm</button>
-            </form>
         </div>
 
         <!-- FORM THÊM SẢN PHẨM MỚI -->
@@ -173,6 +176,14 @@
         </div>
 
         <!-- BẢNG DANH SÁCH SẢN PHẨM[span_1](start_span)[span_1](end_span) -->
+        <div class="admin-search-wrap">
+            <form class="admin-search" method="get" action="/admin">
+                <input type="hidden" name="danh_muc" value="{{ selected_category }}">
+                <input id="adminProductSearch" type="search" name="q" value="{{ search_query }}" placeholder="Tìm theo tên, link hoặc tag..." aria-label="Tìm sản phẩm admin" autocomplete="off">
+                <button type="submit"><i class="fa-solid fa-magnifying-glass"></i> Tìm</button>
+            </form>
+            <div id="adminSuggestions" class="admin-suggestions" role="listbox" aria-label="Gợi ý sản phẩm admin"></div>
+        </div>
         <h3 style="margin-bottom: 15px; color: #1e293b;"><i class="fa-solid fa-list"></i> Danh Sách Sản Phẩm Có Hẳn Chức Năng Sửa</h3>
         <table>
             <thead>
@@ -312,6 +323,82 @@
                 modal.style.display = 'none';
             }
         }
+
+        const adminProductSearch = document.getElementById('adminProductSearch');
+        const adminSuggestions = document.getElementById('adminSuggestions');
+        let adminSearchTimer;
+        let adminSearchController;
+
+        function hideAdminSuggestions() {
+            adminSuggestions.innerHTML = '';
+            adminSuggestions.style.display = 'none';
+        }
+
+        function showAdminSuggestions(products) {
+            adminSuggestions.innerHTML = '';
+            if (!products.length) {
+                hideAdminSuggestions();
+                return;
+            }
+
+            products.forEach((product) => {
+                const suggestion = document.createElement('button');
+                suggestion.type = 'button';
+                suggestion.className = 'admin-suggestion';
+                suggestion.setAttribute('role', 'option');
+
+                const image = document.createElement('img');
+                image.src = product.anh;
+                image.alt = '';
+                image.loading = 'lazy';
+
+                const copy = document.createElement('span');
+                copy.className = 'admin-suggestion-copy';
+                const name = document.createElement('span');
+                name.className = 'admin-suggestion-name';
+                name.textContent = product.ten;
+                const meta = document.createElement('span');
+                meta.className = 'admin-suggestion-meta';
+                meta.textContent = `${product.gia} · ${product.danh_muc}${product.tag ? ` · ${product.tag}` : ''}`;
+                copy.append(name, meta);
+                suggestion.append(image, copy);
+                suggestion.addEventListener('click', () => {
+                    adminProductSearch.value = product.ten;
+                    adminProductSearch.form.submit();
+                });
+                adminSuggestions.appendChild(suggestion);
+            });
+            adminSuggestions.style.display = 'block';
+        }
+
+        adminProductSearch.addEventListener('input', () => {
+            clearTimeout(adminSearchTimer);
+            if (adminSearchController) adminSearchController.abort();
+            const query = adminProductSearch.value.trim();
+            if (!query) {
+                hideAdminSuggestions();
+                return;
+            }
+            adminSearchTimer = setTimeout(async () => {
+                adminSearchController = new AbortController();
+                try {
+                    const response = await fetch(`/api/admin-search?q=${encodeURIComponent(query)}`, {
+                        signal: adminSearchController.signal
+                    });
+                    if (!response.ok) throw new Error('Admin search request failed');
+                    showAdminSuggestions(await response.json());
+                } catch (error) {
+                    if (error.name !== 'AbortError') hideAdminSuggestions();
+                }
+            }, 180);
+        });
+
+        adminProductSearch.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') hideAdminSuggestions();
+        });
+        document.addEventListener('click', (event) => {
+            if (!event.target.closest('.admin-search-wrap')) hideAdminSuggestions();
+        });
     </script>
 </body>
 </html>
