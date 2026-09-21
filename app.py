@@ -12,6 +12,13 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 DATABASE = 'dulieu.db'
+CATEGORY_LABELS = {
+    'all': 'Tất cả',
+    'the-thao-nam': 'Thể thao nam',
+    'the-thao-nu': 'Thể thao nữ',
+    'phu-kien': 'Phụ kiện & dụng cụ',
+    'whey-tpbs': 'Whey / Thực phẩm bổ sung'
+}
 
 
 def save_uploaded_image(file_storage):
@@ -103,8 +110,13 @@ def format_gia(gia):
 
 @app.route('/')
 def index():
+    selected_category = request.args.get('danh_muc', 'all')
     conn = get_db_connection()
-    sp_db = conn.execute('SELECT * FROM san_pham').fetchall()
+
+    if selected_category and selected_category != 'all':
+        sp_db = conn.execute('SELECT * FROM san_pham WHERE danh_muc = ? ORDER BY id DESC', (selected_category,)).fetchall()
+    else:
+        sp_db = conn.execute('SELECT * FROM san_pham ORDER BY id DESC').fetchall()
     conn.close()
 
     san_pham = []
@@ -124,7 +136,12 @@ def index():
             'tag': item['tag'] if item['tag'] else f'-{phan_tram_giam}%'
         })
 
-    return render_template('index.html', san_pham=san_pham)
+    return render_template(
+        'index.html',
+        san_pham=san_pham,
+        danh_muc_options=CATEGORY_LABELS,
+        selected_category=selected_category
+    )
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -151,8 +168,12 @@ def admin():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
 
+    selected_category = request.args.get('danh_muc', 'all')
     conn = get_db_connection()
-    sp_db = conn.execute('SELECT * FROM san_pham ORDER BY id DESC').fetchall()
+    if selected_category and selected_category != 'all':
+        sp_db = conn.execute('SELECT * FROM san_pham WHERE danh_muc = ? ORDER BY id DESC', (selected_category,)).fetchall()
+    else:
+        sp_db = conn.execute('SELECT * FROM san_pham ORDER BY id DESC').fetchall()
     conn.close()
 
     danh_sach = []
@@ -173,7 +194,12 @@ def admin():
             'tag': row.get('tag', '')
         })
 
-    return render_template('admin.html', san_pham=danh_sach)
+    return render_template(
+        'admin.html',
+        san_pham=danh_sach,
+        danh_muc_options=CATEGORY_LABELS,
+        selected_category=selected_category
+    )
 
 
 @app.route('/admin/add', methods=['POST'])

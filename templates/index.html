@@ -233,6 +233,16 @@
         <p>Hệ thống mua sắm chính hãng tích hợp TikTok Shop ưu đãi tốt nhất</p>
     </div>
 
+    <div style="max-width: 1200px; margin: 0 auto 20px; padding: 0 10px;">
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; background: white; border-radius: 12px; padding: 12px; box-shadow: 0 4px 12px rgba(15,23,42,0.06);">
+            {% for key, label in danh_muc_options.items() %}
+            <a href="/?danh_muc={{ key }}" style="padding: 10px 16px; border-radius: 999px; text-decoration: none; font-weight: 600; background: {% if selected_category == key %}#0f172a{% else %}#f1f5f9{% endif %}; color: {% if selected_category == key %}white{% else %}#334155{% endif %}; border: 1px solid {% if selected_category == key %}#0f172a{% else %}#e2e8f0{% endif %};">
+                {{ label }}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
    <div class="grid-container">
     {% for sp in san_pham %}
     <div class="product-card">

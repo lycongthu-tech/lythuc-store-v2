@@ -48,6 +48,15 @@
             <a href="/logout" class="btn-logout"><i class="fa-solid fa-right-from-bracket"></i> Đăng xuất</a>
         </div>
 
+        <div style="margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+            <label for="adminCategoryFilter" style="font-size: 0.9rem; font-weight: bold; color: #475569;">Lọc danh mục:</label>
+            <select id="adminCategoryFilter" onchange="location.href='/admin?danh_muc=' + this.value" style="padding: 10px 12px; border-radius: 8px; border: 1px solid #cbd5e1; min-width: 200px;">
+                {% for key, label in danh_muc_options.items() %}
+                <option value="{{ key }}" {% if selected_category == key %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
         <!-- FORM THÊM SẢN PHẨM MỚI -->
         <div class="form-card">
             <h3 style="margin-bottom: 15px; color: #1e293b;"><i class="fa-solid fa-plus-circle"></i> Thêm Sản Phẩm Mới</h3>
