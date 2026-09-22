@@ -7,64 +7,72 @@
     <!-- FontAwesome cho icon Zalo, Messenger, TikTok -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        :root {
+            --ink: #172033;
+            --muted: #667085;
+            --line: #e8ebf0;
+            --surface: #ffffff;
+            --canvas: #f6f7f9;
+            --accent: #ee4d2d;
+            --accent-soft: #fff1ed;
+            --radius-lg: 16px;
+            --shadow: 0 8px 24px rgba(23, 32, 51, 0.07);
         }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body {
-            background-color: #f8fafc;
-            color: #334155;
-            padding-bottom: 50px;
+            background: var(--canvas);
+            color: var(--ink);
+            padding-bottom: 64px;
             overflow-x: hidden;
         }
         .header-container {
-            background: linear-gradient(135deg, #0f172a, #1e293b);
-            color: white;
+            background: var(--surface);
+            border-bottom: 1px solid var(--line);
+            color: var(--ink);
             text-align: center;
-            padding: 40px 20px;
-            margin-bottom: 30px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            padding: 42px 20px 38px;
+            margin-bottom: 24px;
             position: relative;
         }
         .header-container h1 {
-            font-size: 2.2rem;
-            margin-bottom: 10px;
-            letter-spacing: 1px;
+            color: var(--ink);
+            font-size: clamp(1.8rem, 4vw, 2.55rem);
+            margin-bottom: 8px;
+            letter-spacing: 0.04em;
         }
         .header-container p {
-            color: #94a3b8;
+            color: var(--muted);
             font-size: 1rem;
         }
         .search-panel {
-            max-width: 720px;
-            margin: 0 auto 18px;
-            padding: 0 10px;
+            max-width: 860px;
+            margin: 0 auto 22px;
+            padding: 0 16px;
             position: relative;
         }
         .search-form {
             display: flex;
-            gap: 8px;
-            background: white;
-            padding: 8px;
-            border: 1px solid #e2e8f0;
+            gap: 10px;
+            background: var(--surface);
+            padding: 7px;
+            border: 1px solid var(--line);
             border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+            box-shadow: var(--shadow);
         }
         .search-form input {
             flex: 1;
             min-width: 0;
-            padding: 11px 13px;
-            border: 1px solid #cbd5e1;
+            padding: 12px 14px;
+            border: 0;
+            outline: 0;
             border-radius: 8px;
             font-size: 0.95rem;
         }
         .search-form button {
             border: 0;
             border-radius: 8px;
-            padding: 0 18px;
-            background: #0f172a;
+            padding: 0 20px;
+            background: var(--ink);
             color: white;
             font-weight: 700;
             cursor: pointer;
@@ -102,54 +110,91 @@
         .suggestion-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.88rem; font-weight: 600; }
         .suggestion-price { color: #ef4444; font-size: 0.78rem; font-weight: 700; }
         .category-chip {
-            padding: 10px 16px;
-            border-radius: 999px;
+            padding: 10px 14px;
+            border-radius: 10px;
             text-decoration: none;
             font-weight: 600;
-            background: #f1f5f9;
-            color: #334155;
-            border: 1px solid #e2e8f0;
+            background: #f8f9fb;
+            color: #475467;
+            border: 1px solid var(--line);
+            transition: 0.2s ease;
         }
         .category-chip.active {
-            background: #0f172a;
+            background: var(--ink);
             color: white;
-            border-color: #0f172a;
+            border-color: var(--ink);
         }
+        .category-chip:hover { border-color: var(--ink); color: var(--ink); transform: translateY(-1px); }
+        .category-chip.active:hover { color: white; }
+        .catalog-toolbar {
+            max-width: 1240px;
+            margin: 0 auto 24px;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+        }
+        .category-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            min-width: 0;
+        }
+        .sort-control {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            flex: 0 0 auto;
+            color: var(--muted);
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .sort-control select {
+            appearance: none;
+            min-width: 156px;
+            padding: 10px 34px 10px 12px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23667085' d='m2.1 4.2 3.9 3.9 3.9-3.9.9.9-4.8 4.8-4.8-4.8z'/%3E%3C/svg%3E") no-repeat right 12px center;
+            color: var(--ink);
+            cursor: pointer;
+            outline: 0;
+        }
+        .sort-control select:focus { border-color: var(--ink); }
         .admin-link {
             position: absolute;
             top: 20px;
             right: 20px;
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            padding: 8px 16px;
-            border-radius: 20px;
+            background: #f5f6f8;
+            color: var(--muted);
+            padding: 8px 13px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
             text-decoration: none;
             font-size: 0.9rem;
             transition: background 0.3s;
         }
         .admin-link:hover {
-            background: rgba(255, 255, 255, 0.2);
+            background: var(--ink);
+            color: white;
         }
 
         /* Lưới sản phẩm */
         .grid-container {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr); /* Ép hiển thị đúng 2 cột đều nhau */
-    gap: 12px; /* Khoảng cách giữa các sản phẩm */
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 10px;
-}
-.product-card a[href*="tiktok"], .product-card .btn, .product-card a {
-    font-size: 11px !important;
-    padding: 6px 4px !important;
-    white-space: nowrap !important;
-}
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 22px;
+            max-width: 1240px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
         .product-card {
-            background: white;
-            border-radius: 12px;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--radius-lg);
             overflow: hidden;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            box-shadow: 0 3px 12px rgba(23, 32, 51, 0.04);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
             content-visibility: auto;
             contain-intrinsic-size: 420px;
@@ -159,8 +204,8 @@
             position: relative;
         }
         .product-card:hover {
-            transform: translateY(-6px);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            transform: translateY(-4px);
+            box-shadow: var(--shadow);
         }
         .discount-badge {
             position: absolute;
@@ -170,7 +215,7 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            background: linear-gradient(135deg, #ff4d6d, #ff7b00);
+            background: var(--accent);
             color: white;
             font-size: 0.72rem;
             font-weight: 800;
@@ -179,7 +224,7 @@
             border-radius: 999px;
             box-shadow: 0 8px 18px rgba(255, 77, 109, 0.35);
             border: 2px solid rgba(255,255,255,0.7);
-            animation: discountFloat 1.8s ease-in-out infinite;
+            animation: none;
         }
         .discount-badge .tag-text {
             font-size: 0.7rem;
@@ -204,14 +249,15 @@
         }
         .product-card img {
             width: 100%;
-            height: 220px;
+            aspect-ratio: 1 / 1;
+            height: auto;
             object-fit: cover;
-            border-bottom: 1px solid #f1f5f9;
+            border-bottom: 1px solid var(--line);
             display: block;
-            background: #f1f5f9;
+            background: #f4f5f7;
         }
         .product-info {
-            padding: 15px;
+            padding: 16px 16px 7px;
             flex-grow: 1;
             display: flex;
             flex-direction: column;
@@ -221,7 +267,7 @@
             font-size: 1rem;
             font-weight: 600;
             color: #1e293b;
-            margin-bottom: 10px;
+            margin-bottom: 0;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             line-clamp: 2;
@@ -235,14 +281,21 @@
             margin-bottom: 15px;
         }
         .price-new {
-            color: #ef4444;
-            font-size: 1.15rem;
+            color: var(--accent);
+            font-size: 1.1rem;
             font-weight: bold;
         }
         .price-old {
             color: #94a3b8;
             font-size: 0.9rem;
             text-decoration: line-through;
+        }
+        .product-price-box {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            min-height: 28px;
+            padding: 0 16px;
         }
 
         /* --- HIỆU ỨNG MỀM MẠI CHO NÚT TIKTOK SHOP --- */
@@ -348,7 +401,7 @@
 
         @media (max-width: 768px) {
             .header-container {
-                padding: 30px 16px;
+                padding: 30px 16px 28px;
                 margin-bottom: 18px;
             }
             .header-container h1 {
@@ -357,9 +410,26 @@
             .search-form button {
                 padding: 0 14px;
             }
+            .catalog-toolbar {
+                align-items: stretch;
+                flex-direction: column;
+                gap: 12px;
+                padding: 0 12px;
+            }
+            .category-list {
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                padding-bottom: 3px;
+                scrollbar-width: none;
+            }
+            .category-list::-webkit-scrollbar { display: none; }
+            .category-chip { flex: 0 0 auto; }
+            .sort-control { justify-content: space-between; }
+            .sort-control select { flex: 1; }
             .grid-container {
-                gap: 8px;
-                padding: 8px;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 12px;
+                padding: 0 12px;
             }
             .product-card {
                 border-radius: 8px;
@@ -371,7 +441,7 @@
                 box-shadow: 0 2px 8px rgba(0,0,0,0.05);
             }
             .product-card img {
-                height: 170px;
+                aspect-ratio: 1 / 1;
             }
             .discount-badge,
             .discount-badge .tag-text,
@@ -396,6 +466,14 @@
                 font-size: 21px;
                 box-shadow: 0 3px 10px rgba(0,0,0,0.2);
             }
+            .product-info { padding: 12px 12px 5px; }
+            .product-price-box { padding: 0 12px; }
+            .price-new { font-size: 0.95rem; }
+            .price-old { font-size: 0.72rem; }
+        }
+
+        @media (min-width: 769px) and (max-width: 1050px) {
+            .grid-container { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -429,19 +507,27 @@
         <div id="searchSuggestions" class="search-suggestions" role="listbox" aria-label="Gợi ý sản phẩm"></div>
     </div>
 
-    <div style="max-width: 1200px; margin: 0 auto 20px; padding: 0 10px;">
-        <div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; background: white; border-radius: 12px; padding: 12px; box-shadow: 0 4px 12px rgba(15,23,42,0.06);">
+    <div class="catalog-toolbar">
+        <div class="category-list">
             {% for key, label in danh_muc_options.items() %}
             <a href="/?danh_muc={{ key }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}" class="category-chip{% if selected_category == key %} active{% endif %}">
                 {{ label }}
             </a>
             {% endfor %}
         </div>
+        <label class="sort-control" for="sortProducts">
+            <span>Sắp xếp</span>
+            <select id="sortProducts" aria-label="Sắp xếp sản phẩm">
+                <option value="featured">Nổi bật</option>
+                <option value="price-asc">Giá thấp đến cao</option>
+                <option value="price-desc">Giá cao đến thấp</option>
+            </select>
+        </label>
     </div>
 
-   <div class="grid-container">
+   <div class="grid-container" id="productGrid">
     {% for sp in san_pham %}
-    <div class="product-card">
+    <div class="product-card" data-price="{{ sp.gia_formatted|replace('.', '')|replace('đ', '') }}" data-order="{{ loop.index }}">
         {% if sp.gia_cu_formatted %}
         <div class="discount-badge">
             {% if sp.tag and sp.tag != sp.giam_gia %}
@@ -461,7 +547,7 @@
         </a>
 
         <!-- Giá sản phẩm -->
-        <div class="product-price-box" style="padding: 0 10px;">
+        <div class="product-price-box">
             <span class="price-new">{{ sp.gia_formatted }}</span>
             {% if sp.gia_cu_formatted %}
             <span class="price-old">{{ sp.gia_cu_formatted }}</span>
@@ -491,6 +577,19 @@
     </div>
 
     <script>
+        const productGrid = document.getElementById('productGrid');
+        const sortProducts = document.getElementById('sortProducts');
+        sortProducts.addEventListener('change', () => {
+            const cards = [...productGrid.querySelectorAll('.product-card')];
+            const sortMode = sortProducts.value;
+            cards.sort((first, second) => {
+                if (sortMode === 'price-asc') return Number(first.dataset.price) - Number(second.dataset.price);
+                if (sortMode === 'price-desc') return Number(second.dataset.price) - Number(first.dataset.price);
+                return Number(first.dataset.order) - Number(second.dataset.order);
+            });
+            cards.forEach((card) => productGrid.appendChild(card));
+        });
+
         const productSearch = document.getElementById('productSearch');
         const searchSuggestions = document.getElementById('searchSuggestions');
         let searchTimer;
@@ -581,14 +680,14 @@
     text-align: center;
     padding: 10px 12px;
     border-radius: 8px;
-    font-size: 11px !important;
+    font-size: 0.78rem;
     font-weight: bold;
     text-decoration: none;
     white-space: nowrap !important;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
     overflow: hidden;
     transition: all 0.3s ease;
-    animation: buyPulse 1.8s ease-in-out infinite;
+    animation: none;
 }
 
 .buy-btn::before {
