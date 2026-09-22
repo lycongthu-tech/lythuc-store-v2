@@ -6,6 +6,8 @@ import sqlite3
 import time
 import secrets
 import threading
+import re
+import unicodedata
 import cloudinary
 import cloudinary.uploader
 import psycopg2
@@ -28,7 +30,10 @@ def generate_csrf_token():
 
 @app.before_request
 def validate_csrf():
-    if request.method == 'POST' and request.endpoint in {'add_product', 'edit_product', 'delete_product'}:
+    if request.method == 'POST' and request.endpoint in {
+        'add_product', 'edit_product', 'delete_product',
+        'add_category', 'edit_category', 'delete_category'
+    }:
         token = request.form.get('csrf_token')
         if not token or token != session.get('csrf_token'):
             flash('Phiên làm việc đã hết hạn hoặc request không hợp lệ.', 'error')
@@ -68,13 +73,12 @@ CACHE_TTL_SECONDS = 45
 _cache = {}
 _cache_lock = threading.Lock()
 _postgres_pool = None
-CATEGORY_LABELS = {
-    'all': 'Tất cả',
-    'the-thao-nam': 'Thể thao nam',
-    'the-thao-nu': 'Thể thao nữ',
-    'phu-kien': 'Phụ kiện & dụng cụ',
-    'whey-tpbs': 'Whey / Thực phẩm bổ sung'
-}
+DEFAULT_CATEGORIES = [
+    ('the-thao-nam', 'Thể thao nam'),
+    ('the-thao-nu', 'Thể thao nữ'),
+    ('phu-kien', 'Phụ kiện & dụng cụ'),
+    ('whey-tpbs', 'Whey / Thực phẩm bổ sung'),
+]
 
 
 def get_cached(key):
@@ -95,6 +99,30 @@ def set_cached(key, value, ttl=CACHE_TTL_SECONDS):
 def invalidate_product_cache():
     with _cache_lock:
         _cache.clear()
+
+
+def slugify_category(name):
+    normalized = unicodedata.normalize('NFKD', name).encode('ascii', 'ignore').decode('ascii')
+    slug = re.sub(r'[^a-z0-9]+', '-', normalized.lower()).strip('-')
+    return slug[:80]
+
+
+def get_categories(include_all=True):
+    cached = get_cached(('categories',))
+    if cached is None:
+        conn = get_db_connection()
+        order_clause = 'LOWER(name)' if DATABASE_URL else 'name COLLATE NOCASE'
+        rows = conn.execute(f'SELECT id, name, slug FROM categories ORDER BY {order_clause}').fetchall()
+        conn.close()
+        cached = [dict(row) for row in rows]
+        set_cached(('categories',), cached)
+    if include_all:
+        return [{'id': 0, 'name': 'Tất cả', 'slug': 'all'}] + cached
+    return cached
+
+
+def category_options():
+    return {category['slug']: category['name'] for category in get_categories()}
 
 
 def optimize_image_url(image_url, width=600, height=600):
@@ -193,6 +221,36 @@ class PostgresConnection:
 def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
+
+    if DATABASE_URL:
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS categories (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                slug TEXT NOT NULL UNIQUE
+            )
+        ''')
+    else:
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS categories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                slug TEXT NOT NULL UNIQUE
+            )
+        ''')
+    conn.commit()
+    for slug, name in DEFAULT_CATEGORIES:
+        if DATABASE_URL:
+            cursor.execute(
+                'INSERT INTO categories (name, slug) VALUES (?, ?) ON CONFLICT (slug) DO NOTHING',
+                (name, slug)
+            )
+        else:
+            cursor.execute(
+                'INSERT OR IGNORE INTO categories (name, slug) VALUES (?, ?)',
+                (name, slug)
+            )
+    conn.commit()
 
     if DATABASE_URL:
         cursor.execute('''
@@ -330,7 +388,7 @@ def index():
     return render_template(
         'index.html',
         san_pham=san_pham,
-        danh_muc_options=CATEGORY_LABELS,
+        danh_muc_options=category_options(),
         selected_category=selected_category,
         search_query=search_query
     )
@@ -378,8 +436,10 @@ def admin_search_products():
 
     conn = get_db_connection()
     rows = conn.execute('''
-        SELECT id, ten, gia, anh, danh_muc, tag
+        SELECT san_pham.id, san_pham.ten, san_pham.gia, san_pham.anh,
+               san_pham.danh_muc, categories.name AS danh_muc_name, san_pham.tag
         FROM san_pham
+        LEFT JOIN categories ON categories.slug = san_pham.danh_muc
         WHERE LOWER(ten) LIKE LOWER(?)
            OR LOWER(link_affiliate) LIKE LOWER(?)
            OR LOWER(tag) LIKE LOWER(?)
@@ -394,7 +454,7 @@ def admin_search_products():
             'ten': row['ten'],
             'gia': format_gia(row['gia']),
             'anh': row['anh'],
-            'danh_muc': row['danh_muc'],
+            'danh_muc': row['danh_muc_name'] or row['danh_muc'],
             'tag': row['tag'] or ''
         }
         for row in rows
@@ -418,6 +478,96 @@ def login():
 def logout():
     session.pop('logged_in', None)
     return redirect(url_for('login'))
+
+
+@app.route('/admin/categories/add', methods=['POST'])
+def add_category():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    name = request.form.get('name', '').strip()
+    slug = slugify_category(name)
+    if not name or not slug:
+        flash('Vui lòng nhập tên danh mục hợp lệ.', 'error')
+        return redirect(url_for('admin'))
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        conn.execute('INSERT INTO categories (name, slug) VALUES (?, ?)', (name, slug))
+        conn.commit()
+        invalidate_product_cache()
+        flash('Đã thêm danh mục thành công.', 'success')
+    except (sqlite3.IntegrityError, psycopg2.IntegrityError):
+        if conn:
+            conn.rollback()
+        flash('Tên hoặc slug danh mục đã tồn tại.', 'error')
+    finally:
+        if conn:
+            conn.close()
+    return redirect(url_for('admin'))
+
+
+@app.route('/admin/categories/edit/<int:id>', methods=['POST'])
+def edit_category(id):
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    name = request.form.get('name', '').strip()
+    slug = slugify_category(name)
+    if not name or not slug:
+        flash('Vui lòng nhập tên danh mục hợp lệ.', 'error')
+        return redirect(url_for('admin'))
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        existing = conn.execute('SELECT slug FROM categories WHERE id = ?', (id,)).fetchone()
+        if not existing:
+            flash('Không tìm thấy danh mục.', 'error')
+            return redirect(url_for('admin'))
+        old_slug = existing['slug']
+        conn.execute('UPDATE categories SET name = ?, slug = ? WHERE id = ?', (name, slug, id))
+        if old_slug != slug:
+            conn.execute('UPDATE san_pham SET danh_muc = ? WHERE danh_muc = ?', (slug, old_slug))
+        conn.commit()
+        invalidate_product_cache()
+        flash('Đã cập nhật danh mục thành công.', 'success')
+    except (sqlite3.IntegrityError, psycopg2.IntegrityError):
+        if conn:
+            conn.rollback()
+        flash('Tên hoặc slug danh mục đã tồn tại.', 'error')
+    finally:
+        if conn:
+            conn.close()
+    return redirect(url_for('admin'))
+
+
+@app.route('/admin/categories/delete/<int:id>', methods=['POST'])
+def delete_category(id):
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        category = conn.execute('SELECT slug FROM categories WHERE id = ?', (id,)).fetchone()
+        if not category:
+            flash('Không tìm thấy danh mục.', 'error')
+            return redirect(url_for('admin'))
+        usage = conn.execute('SELECT COUNT(*) AS count FROM san_pham WHERE danh_muc = ?', (category['slug'],)).fetchone()
+        count = usage['count'] if DATABASE_URL else usage[0]
+        if count:
+            flash('Không thể xóa danh mục đang có sản phẩm. Hãy chuyển sản phẩm sang danh mục khác trước.', 'error')
+            return redirect(url_for('admin'))
+        conn.execute('DELETE FROM categories WHERE id = ?', (id,))
+        conn.commit()
+        invalidate_product_cache()
+        flash('Đã xóa danh mục thành công.', 'success')
+    finally:
+        if conn:
+            conn.close()
+    return redirect(url_for('admin'))
 
 
 @app.route('/admin')
@@ -466,7 +616,8 @@ def admin():
     return render_template(
         'admin.html',
         san_pham=danh_sach,
-        danh_muc_options=CATEGORY_LABELS,
+        danh_muc_options=category_options(),
+        categories=get_categories(include_all=False),
         selected_category=selected_category,
         search_query=search_query,
         csrf_token=generate_csrf_token()
@@ -490,6 +641,8 @@ def add_product():
 
         if not ten or gia <= 0 or gia_cu <= 0 or not link_affiliate:
             raise ValueError('Vui lòng nhập đầy đủ tên, giá bán, giá cũ và link sản phẩm hợp lệ.')
+        if danh_muc not in {category['slug'] for category in get_categories(include_all=False)}:
+            raise ValueError('Danh mục sản phẩm không hợp lệ.')
 
         anh_url = request.form.get('anh', '').strip()
         anh_upload = save_uploaded_image(request.files.get('file_anh'))
@@ -541,6 +694,8 @@ def edit_product(id):
 
         if not ten or gia <= 0 or (gia_cu_input and gia_cu <= 0) or not link_affiliate:
             raise ValueError('Vui lòng nhập đầy đủ tên, giá bán và link sản phẩm hợp lệ.')
+        if danh_muc not in {category['slug'] for category in get_categories(include_all=False)}:
+            raise ValueError('Danh mục sản phẩm không hợp lệ.')
 
         anh_url = request.form.get('anh', '').strip()
         anh_upload = save_uploaded_image(request.files.get('file_anh'))

@@ -101,6 +101,17 @@
             font-weight: 700;
         }
         .category-menu-panel select { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; }
+        .categories-card { background: #fff; border: 1px solid #e2e8f0; padding: 18px; border-radius: 8px; margin-bottom: 24px; }
+        .categories-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
+        .category-add-form { display: flex; gap: 8px; margin-bottom: 14px; }
+        .category-add-form input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; }
+        .category-add-form button, .category-edit-form button { border: 0; background: #16a34a; color: white; padding: 10px 14px; border-radius: 6px; font-weight: 700; cursor: pointer; }
+        .category-list-admin { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
+        .category-admin-item { display: flex; align-items: center; gap: 8px; padding: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; }
+        .category-edit-form { display: flex; flex: 1; gap: 6px; min-width: 0; }
+        .category-edit-form input { min-width: 0; flex: 1; padding: 7px 8px; border: 1px solid #cbd5e1; border-radius: 5px; }
+        .category-edit-form button { background: #2563eb; padding: 7px 9px; }
+        .category-delete-form button { border: 0; background: #fee2e2; color: #b91c1c; padding: 7px 9px; border-radius: 5px; cursor: pointer; }
 
         @media (max-width: 768px) {
             body { padding: 10px; }
@@ -148,6 +159,8 @@
             .product-list-heading { align-items: flex-start; }
             .product-list-heading h3 { font-size: 1rem; line-height: 1.35; }
             .category-menu-panel { right: 0; min-width: min(220px, calc(100vw - 48px)); }
+            .categories-header { align-items: flex-start; flex-direction: column; }
+            .category-add-form { flex-direction: column; }
         }
     </style>
 </head>
@@ -165,6 +178,33 @@
             <h2><i class="fa-solid fa-boxes-packing"></i> QUẢN LÝ SẢN PHẨM</h2>
             <a href="/logout" class="btn-logout"><i class="fa-solid fa-right-from-bracket"></i> Đăng xuất</a>
         </div>
+
+        <section class="categories-card" aria-labelledby="categoriesTitle">
+            <div class="categories-header">
+                <h3 id="categoriesTitle"><i class="fa-solid fa-layer-group"></i> Quản lý danh mục</h3>
+                <span style="color: #64748b; font-size: 0.85rem;">Danh mục được dùng cho toàn bộ cửa hàng</span>
+            </div>
+            <form class="category-add-form" action="/admin/categories/add" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="text" name="name" placeholder="Tên danh mục mới" required maxlength="120">
+                <button type="submit"><i class="fa-solid fa-plus"></i> Thêm danh mục</button>
+            </form>
+            <div class="category-list-admin">
+                {% for category in categories %}
+                <div class="category-admin-item">
+                    <form class="category-edit-form" action="/admin/categories/edit/{{ category.id }}" method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <input type="text" name="name" value="{{ category.name }}" required maxlength="120" aria-label="Tên danh mục">
+                        <button type="submit" title="Lưu danh mục"><i class="fa-solid fa-check"></i></button>
+                    </form>
+                    <form class="category-delete-form" action="/admin/categories/delete/{{ category.id }}" method="POST" onsubmit="return confirm('Bạn có chắc chắn muốn xóa danh mục này không?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit" title="Xóa danh mục"><i class="fa-solid fa-trash"></i></button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
 
         <!-- FORM THÊM SẢN PHẨM MỚI -->
         <div class="form-card">
@@ -199,10 +239,9 @@
                     <div class="form-group category-field">
                         <label>Danh Mục:</label>
                         <select name="danh_muc">
-                            <option value="the-thao-nam">🏋️ Thể Thao Nam</option>
-                            <option value="the-thao-nu">🧘 Thể Thao Nữ</option>
-                            <option value="phu-kien">🥊 Phụ Kiện & Dụng Cụ</option>
-                            <option value="whey-tpbs">🥤 Thực Phẩm Bổ Sung - Whey</option>
+                            {% for category in categories %}
+                            <option value="{{ category.slug }}">{{ category.name }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                     <div class="form-group tag-field">
@@ -257,7 +296,7 @@
                     <td data-label="Tên sản phẩm" style="font-weight: 500;">{{ item.ten }}</td>
                     <td data-label="Giá" style="color: #d92d20; font-weight: bold;">{{ item.gia_formatted }}</td>
                     <td data-label="Giá cũ" style="color: #94a3b8; text-decoration: line-through;">{{ item.gia_cu_formatted }}</td>
-                    <td data-label="Danh mục"><span style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">{{ item.danh_muc }}</span></td>
+                    <td data-label="Danh mục"><span style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">{{ danh_muc_options.get(item.danh_muc, item.danh_muc) }}</span></td>
                     <td data-label="Thao tác" class="action-cell">
                         <!-- DÙNG DATA ATTRIBUTE ĐỂ TRUYỀN DỮ LIỆU ANH TOÀN TUYỆT ĐỐI -->
                         <button class="btn-edit" 
@@ -324,10 +363,9 @@
                     <div class="form-group category-field">
                         <label>Danh Mục:</label>
                         <select id="edit_danh_muc" name="danh_muc">
-                            <option value="the-thao-nam">🏋️ Thể Thao Nam</option>
-                            <option value="the-thao-nu">🧘 Thể Thao Nữ</option>
-                            <option value="phu-kien">🥊 Phụ Kiện & Dụng Cụ</option>
-                            <option value="whey-tpbs">🥤 Thực Phẩm Bổ Sung - Whey</option>
+                            {% for category in categories %}
+                            <option value="{{ category.slug }}">{{ category.name }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                     <div class="form-group tag-field">
