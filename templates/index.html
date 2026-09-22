@@ -82,9 +82,11 @@
         .drawer-category-link.active { color: var(--accent); }
         .drawer-expand { border: 0; background: transparent; color: var(--muted); padding: 8px; cursor: pointer; transition: transform 0.2s ease; }
         .drawer-category-item.is-expanded > .drawer-category-row .drawer-expand { transform: rotate(180deg); }
-        .drawer-children { display: none; list-style: none; padding: 0 0 6px 18px; }
+        .drawer-children { display: none; list-style: none; margin-left: 8px; padding: 0 0 6px 16px; border-left: 1px solid #e5e7eb; }
         .drawer-category-item.is-expanded > .drawer-children { display: block; }
         .drawer-children .drawer-category-link { display: block; padding: 8px 0; color: var(--muted); font-size: 0.92rem; }
+        .drawer-children .drawer-category-row { min-height: 38px; }
+        .drawer-children .drawer-category-item { border-bottom: 0; }
         .header-container {
             background: var(--surface);
             border-bottom: 1px solid var(--line);

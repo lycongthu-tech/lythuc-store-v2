@@ -101,14 +101,21 @@
             font-weight: 700;
         }
         .category-menu-panel select { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; }
-        .categories-card { background: #fff; border: 1px solid #e2e8f0; padding: 18px; border-radius: 8px; margin-bottom: 24px; }
-        .categories-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
+        .categories-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 24px; overflow: hidden; }
+        .categories-card[open] { box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06); }
+        .categories-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; cursor: pointer; list-style: none; }
+        .categories-summary::-webkit-details-marker { display: none; }
+        .categories-summary::after { content: '\f078'; font-family: 'Font Awesome 6 Free'; font-weight: 900; color: #64748b; transition: transform 0.2s ease; }
+        .categories-card[open] .categories-summary::after { transform: rotate(180deg); }
+        .categories-header { display: flex; align-items: center; gap: 10px; }
+        .categories-header h3 { color: #1e293b; }
+        .categories-content { padding: 0 18px 18px; border-top: 1px solid #e2e8f0; }
         .category-add-form { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(150px, 1fr) 90px auto; gap: 8px; margin-bottom: 14px; }
         .category-add-form input, .category-add-form select { min-width: 0; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; }
         .category-add-form button, .category-edit-form button { border: 0; background: #16a34a; color: white; padding: 10px 14px; border-radius: 6px; font-weight: 700; cursor: pointer; }
         .category-list-admin { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
         .category-admin-item { display: flex; align-items: center; gap: 8px; padding: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; }
-        .category-admin-item.is-child { margin-left: 22px; }
+        .category-admin-item.is-child { margin-left: calc(var(--category-depth) * 22px); }
         .category-edit-form { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(120px, 1fr) 68px auto; flex: 1; gap: 6px; min-width: 0; }
         .category-edit-form input, .category-edit-form select { min-width: 0; padding: 7px 8px; border: 1px solid #cbd5e1; border-radius: 5px; }
         .category-edit-form button { background: #2563eb; padding: 7px 9px; }
@@ -161,8 +168,9 @@
             .product-list-heading h3 { font-size: 1rem; line-height: 1.35; }
             .category-menu-panel { right: 0; min-width: min(220px, calc(100vw - 48px)); }
             .categories-header { align-items: flex-start; flex-direction: column; }
+            .categories-summary { align-items: flex-start; }
             .category-add-form, .category-edit-form { display: flex; flex-direction: column; }
-            .category-admin-item.is-child { margin-left: 12px; }
+            .category-admin-item.is-child { margin-left: calc(var(--category-depth) * 12px); }
         }
     </style>
 </head>
@@ -181,11 +189,14 @@
             <a href="/logout" class="btn-logout"><i class="fa-solid fa-right-from-bracket"></i> Đăng xuất</a>
         </div>
 
-        <section class="categories-card" aria-labelledby="categoriesTitle">
-            <div class="categories-header">
+        <details class="categories-card">
+            <summary class="categories-summary">
+                <div class="categories-header">
                 <h3 id="categoriesTitle"><i class="fa-solid fa-layer-group"></i> Quản lý danh mục</h3>
                 <span style="color: #64748b; font-size: 0.85rem;">Danh mục được dùng cho toàn bộ cửa hàng</span>
-            </div>
+                </div>
+            </summary>
+            <div class="categories-content">
             <form class="category-add-form" action="/admin/categories/add" method="POST">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <input type="text" name="name" placeholder="Tên danh mục mới" required maxlength="120">
@@ -200,7 +211,7 @@
             </form>
             <div class="category-list-admin">
                 {% for category in category_tree recursive %}
-                <div class="category-admin-item{% if category.depth %} is-child{% endif %}">
+                <div class="category-admin-item{% if category.depth %} is-child{% endif %}" style="--category-depth: {{ category.depth }};">
                     <form class="category-edit-form" action="/admin/categories/edit/{{ category.id }}" method="POST">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <input type="text" name="name" value="{{ category.name }}" required maxlength="120" aria-label="Tên danh mục">
@@ -221,7 +232,8 @@
                 {% if category.children %}{{ loop(category.children) }}{% endif %}
                 {% endfor %}
             </div>
-        </section>
+            </div>
+        </details>
 
         <!-- FORM THÊM SẢN PHẨM MỚI -->
         <div class="form-card">
