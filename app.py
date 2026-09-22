@@ -74,11 +74,19 @@ _cache = {}
 _cache_lock = threading.Lock()
 _postgres_pool = None
 DEFAULT_CATEGORIES = [
-    ('the-thao-nam', 'Thể thao nam'),
-    ('the-thao-nu', 'Thể thao nữ'),
-    ('phu-kien', 'Phụ kiện & dụng cụ'),
-    ('whey-tpbs', 'Whey / Thực phẩm bổ sung'),
+    ('the-thao-suc-khoe', 'Thể Thao Và Sức Khỏe'),
+    ('thoi-trang-phu-kien', 'Thời Trang Và Phụ Kiện'),
+    ('lam-dep-cham-soc-ca-nhan', 'Làm đẹp & Chăm sóc cá nhân'),
+    ('do-gia-dung-thong-minh-tien-ich-ca-nhan', 'Đồ gia dụng thông minh & Tiện ích cá nhân'),
+    ('phu-kien-cong-nghe-tien-ich-so', 'Phụ kiện công nghệ & Tiện ích số'),
 ]
+FIXED_CATEGORY_SLUGS = {slug for slug, _ in DEFAULT_CATEGORIES}
+LEGACY_CATEGORY_MAPPING = {
+    'the-thao-nam': 'the-thao-suc-khoe',
+    'the-thao-nu': 'the-thao-suc-khoe',
+    'whey-tpbs': 'the-thao-suc-khoe',
+    'phu-kien': 'phu-kien-cong-nghe-tien-ich-so',
+}
 
 
 def get_cached(key):
@@ -126,6 +134,29 @@ def get_categories(include_all=True):
 
 def category_options():
     return {category['slug']: category['name'] for category in get_categories()}
+
+
+def infer_root_slug(name, slug=''):
+    text = slugify_category(f'{name} {slug}')
+    if any(word in text for word in ('thoi trang', 'ao ', 'quan ', 'giay', 'tui', 'phu kien thoi')):
+        return 'thoi-trang-phu-kien'
+    if any(word in text for word in ('lam dep', 'my pham', 'cham soc', 'skincare', 'makeup')):
+        return 'lam-dep-cham-soc-ca-nhan'
+    if any(word in text for word in ('gia dung', 'nha bep', 'tien ich', 'thong minh')):
+        return 'do-gia-dung-thong-minh-tien-ich-ca-nhan'
+    if any(word in text for word in ('cong nghe', 'dien thoai', 'ky thuat so', 'tech')):
+        return 'phu-kien-cong-nghe-tien-ich-so'
+    return 'the-thao-suc-khoe'
+
+
+def get_category_root_slug(selected_slug):
+    if not selected_slug or selected_slug == 'all':
+        return 'all'
+    categories = get_categories(include_all=False)
+    current = next((item for item in categories if item['slug'] == selected_slug), None)
+    while current and current['parent_id'] is not None:
+        current = next((item for item in categories if item['id'] == current['parent_id']), None)
+    return current['slug'] if current else selected_slug
 
 
 def get_category_tree():
@@ -327,7 +358,7 @@ def init_db():
                 gia_cu INTEGER,
                 anh TEXT NOT NULL,
                 link_affiliate TEXT NOT NULL,
-                danh_muc TEXT DEFAULT 'the-thao-nam',
+                danh_muc TEXT DEFAULT 'the-thao-suc-khoe',
                 tag TEXT DEFAULT '-20%'
             )
         ''')
@@ -340,10 +371,40 @@ def init_db():
                 gia_cu INTEGER,
                 anh TEXT NOT NULL,
                 link_affiliate TEXT NOT NULL,
-                danh_muc TEXT DEFAULT 'the-thao-nam',
+                danh_muc TEXT DEFAULT 'the-thao-suc-khoe',
                 tag TEXT DEFAULT '-20%'
             )
         ''')
+    conn.commit()
+
+    root_rows = conn.execute('SELECT id, slug FROM categories WHERE parent_id IS NULL').fetchall()
+    root_by_slug = {row['slug']: row['id'] for row in root_rows}
+    placeholder = '%s' if DATABASE_URL else '?'
+    for legacy_slug, target_slug in LEGACY_CATEGORY_MAPPING.items():
+        if legacy_slug == target_slug:
+            continue
+        target_id = root_by_slug.get(target_slug)
+        legacy_row = conn.execute('SELECT id FROM categories WHERE slug = ?', (legacy_slug,)).fetchone()
+        if target_id and legacy_row:
+            legacy_id = legacy_row['id']
+            cursor.execute(f'UPDATE categories SET parent_id = {placeholder} WHERE parent_id = {placeholder}', (target_id, legacy_id))
+            cursor.execute(f'UPDATE san_pham SET danh_muc = {placeholder} WHERE danh_muc = {placeholder}', (target_slug, legacy_slug))
+            cursor.execute(f'DELETE FROM categories WHERE slug = {placeholder}', (legacy_slug,))
+    conn.commit()
+    cursor.execute('UPDATE categories SET sort_order = id WHERE slug IN ({})'.format(','.join(
+        ('%s' if DATABASE_URL else '?') for _ in DEFAULT_CATEGORIES
+    )), tuple(slug for slug, _ in DEFAULT_CATEGORIES))
+    for sort_order, (slug, _) in enumerate(DEFAULT_CATEGORIES):
+        cursor.execute(f'UPDATE categories SET sort_order = {placeholder}, parent_id = NULL WHERE slug = {placeholder}', (sort_order, slug))
+    conn.commit()
+    root_rows = conn.execute('SELECT id, name, slug FROM categories WHERE parent_id IS NULL').fetchall()
+    root_by_slug = {row['slug']: row['id'] for row in root_rows}
+    for row in root_rows:
+        if row['slug'] in FIXED_CATEGORY_SLUGS:
+            continue
+        target_id = root_by_slug.get(infer_root_slug(row['name'], row['slug']))
+        if target_id:
+            cursor.execute(f'UPDATE categories SET parent_id = {placeholder} WHERE id = {placeholder}', (target_id, row['id']))
     conn.commit()
 
     if DATABASE_URL:
@@ -375,17 +436,17 @@ def init_db():
     count = count_row['count'] if DATABASE_URL else count_row[0]
     if count == 0:
         san_pham_mau = [
-            ("Áo Thun Thể Thao Nam Vải Poly Cao Cấp", 89000, 120000, "https://images.unsplash.com/photo-1581655353564-df123a1eb820", "https://vt.tiktok.com/", "the-thao-nam", "-25%"),
-            ("Quần Short Gym Nam Có Túi Kéo Khóa", 99000, 150000, "https://images.unsplash.com/photo-1517445312882-bc9910d016b7", "https://vt.tiktok.com/", "the-thao-nam", "-33%"),
-            ("Áo Khoác Chạy Bộ Nam - Dài Tay Cao Cấp", 169000, 220000, "https://images.unsplash.com/photo-1556905055-8f358a7a47b2", "https://vt.tiktok.com/", "the-thao-nam", "-23%"),
-            ("Bộ Quần Áo Tập Gym Nam Thể Thao Mùa Hè", 199000, 280000, "https://images.unsplash.com/photo-1534438327276-14e5300c3a48", "https://vt.tiktok.com/", "the-thao-nam", "-28%"),
-            ("Áo Tập Yoga Nữ Không Gọng Tôn Dáng", 89000, 130000, "https://images.unsplash.com/photo-1518310383802-640c2de311b2", "https://vt.tiktok.com/", "the-thao-nu", "-31%"),
-            ("Quần Legging Nữ Cạp Cao Nâng Mông", 109000, 160000, "https://images.unsplash.com/photo-1506126613408-eca07ce68773", "https://vt.tiktok.com/", "the-thao-nu", "-31%"),
-            ("Áo Khoác Gió Thể Thao Nữ Chống Nước Nhẹ", 159000, 220000, "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b", "https://vt.tiktok.com/", "the-thao-nu", "-27%"),
-            ("Băng Quấn Cổ Tay Tập Gym Chống Trượt", 45000, 70000, "https://images.unsplash.com/photo-1584735935682-2f2b69dff9d2", "https://vt.tiktok.com/", "the-thao-nu", "-35%"),
-            ("Đai Lưng Tập Gym Bảo Vệ Cột Sống", 225000, 320000, "https://images.unsplash.com/photo-1517838277536-f5f99be501cd", "https://vt.tiktok.com/", "phu-kien", "-30%"),
-            ("Thảm Tập Yoga Cao Su Non Chống Trượt", 140000, 200000, "https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f", "https://vt.tiktok.com/", "phu-kien", "-30%"),
-            ("Bột Whey Protein Hỗ Trợ Tăng Cơ Giảm Mỡ", 650000, 850000, "https://images.unsplash.com/photo-1579722883378-7634e4096053", "https://vt.tiktok.com/", "whey-tpbs", "-23%")
+            ("Áo Thun Thể Thao Nam Vải Poly Cao Cấp", 89000, 120000, "https://images.unsplash.com/photo-1581655353564-df123a1eb820", "https://vt.tiktok.com/", "the-thao-suc-khoe", "-25%"),
+            ("Quần Short Gym Nam Có Túi Kéo Khóa", 99000, 150000, "https://images.unsplash.com/photo-1517445312882-bc9910d016b7", "https://vt.tiktok.com/", "the-thao-suc-khoe", "-33%"),
+            ("Áo Khoác Chạy Bộ Nam - Dài Tay Cao Cấp", 169000, 220000, "https://images.unsplash.com/photo-1556905055-8f358a7a47b2", "https://vt.tiktok.com/", "the-thao-suc-khoe", "-23%"),
+            ("Bộ Quần Áo Tập Gym Nam Thể Thao Mùa Hè", 199000, 280000, "https://images.unsplash.com/photo-1534438327276-14e5300c3a48", "https://vt.tiktok.com/", "the-thao-suc-khoe", "-28%"),
+            ("Áo Tập Yoga Nữ Không Gọng Tôn Dáng", 89000, 130000, "https://images.unsplash.com/photo-1518310383802-640c2de311b2", "https://vt.tiktok.com/", "the-thao-suc-khoe", "-31%"),
+            ("Quần Legging Nữ Cạp Cao Nâng Mông", 109000, 160000, "https://images.unsplash.com/photo-1506126613408-eca07ce68773", "https://vt.tiktok.com/", "the-thao-suc-khoe", "-31%"),
+            ("Áo Khoác Gió Thể Thao Nữ Chống Nước Nhẹ", 159000, 220000, "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b", "https://vt.tiktok.com/", "the-thao-suc-khoe", "-27%"),
+            ("Băng Quấn Cổ Tay Tập Gym Chống Trượt", 45000, 70000, "https://images.unsplash.com/photo-1584735935682-2f2b69dff9d2", "https://vt.tiktok.com/", "the-thao-suc-khoe", "-35%"),
+            ("Đai Lưng Tập Gym Bảo Vệ Cột Sống", 225000, 320000, "https://images.unsplash.com/photo-1517838277536-f5f99be501cd", "https://vt.tiktok.com/", "phu-kien-cong-nghe-tien-ich-so", "-30%"),
+            ("Thảm Tập Yoga Cao Su Non Chống Trượt", 140000, 200000, "https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f", "https://vt.tiktok.com/", "the-thao-suc-khoe", "-30%"),
+            ("Bột Whey Protein Hỗ Trợ Tăng Cơ Giảm Mỡ", 650000, 850000, "https://images.unsplash.com/photo-1579722883378-7634e4096053", "https://vt.tiktok.com/", "the-thao-suc-khoe", "-23%")
         ]
         insert_product_query = '''
             INSERT INTO san_pham (ten, gia, gia_cu, anh, link_affiliate, danh_muc, tag)
@@ -466,6 +527,8 @@ def index():
         san_pham=san_pham,
         danh_muc_options=category_options(),
         category_tree=get_category_tree(),
+        root_categories=[category for category in get_categories(include_all=False) if category['parent_id'] is None],
+        selected_root_slug=get_category_root_slug(selected_category),
         selected_category=selected_category,
         search_query=search_query
     )
@@ -570,6 +633,9 @@ def add_category():
     if not name or not slug:
         flash('Vui lòng nhập tên danh mục hợp lệ.', 'error')
         return redirect(url_for('admin'))
+    if parent_id is None:
+        flash('Chỉ được tạo danh mục con bên trong một danh mục chính cố định.', 'error')
+        return redirect(url_for('admin'))
 
     conn = None
     try:
@@ -619,6 +685,13 @@ def edit_category(id):
             flash('Không tìm thấy danh mục.', 'error')
             return redirect(url_for('admin'))
         old_slug = existing['slug']
+        if old_slug in FIXED_CATEGORY_SLUGS:
+            fixed_name = dict(DEFAULT_CATEGORIES)[old_slug]
+            if name != fixed_name or parent_id is not None:
+                raise ValueError('Năm danh mục chính là cố định; không thể đổi tên, cấp hoặc thứ tự.')
+            sort_order = next(index for index, (slug, _) in enumerate(DEFAULT_CATEGORIES) if slug == old_slug)
+        elif parent_id is None:
+            raise ValueError('Danh mục con phải nằm bên trong một danh mục chính.')
         categories = get_categories(include_all=False)
         if parent_id == id or (parent_id is not None and category_is_descendant(categories, id, parent_id)):
             raise ValueError('Không thể chọn danh mục con làm danh mục cha.')
@@ -658,6 +731,9 @@ def delete_category(id):
         category = conn.execute('SELECT slug FROM categories WHERE id = ?', (id,)).fetchone()
         if not category:
             flash('Không tìm thấy danh mục.', 'error')
+            return redirect(url_for('admin'))
+        if category['slug'] in FIXED_CATEGORY_SLUGS:
+            flash('Năm danh mục chính cố định không thể xóa.', 'error')
             return redirect(url_for('admin'))
         children = conn.execute('SELECT COUNT(*) AS count FROM categories WHERE parent_id = ?', (id,)).fetchone()
         child_count = children['count'] if DATABASE_URL else children[0]
@@ -728,6 +804,8 @@ def admin():
         danh_muc_options=category_options(),
         categories=get_categories(include_all=False),
         category_tree=get_category_tree(),
+        root_categories=[category for category in get_categories(include_all=False) if category['parent_id'] is None],
+        fixed_category_slugs=FIXED_CATEGORY_SLUGS,
         selected_category=selected_category,
         search_query=search_query,
         csrf_token=generate_csrf_token()
@@ -746,7 +824,7 @@ def add_product():
         gia_cu_input = request.form.get('gia_cu', '').strip()
         gia_cu = int(gia_cu_input) if gia_cu_input else int(gia * 1.25)
         link_affiliate = request.form.get('link_affiliate', '').strip()
-        danh_muc = request.form.get('danh_muc', 'the-thao-nam')
+        danh_muc = request.form.get('danh_muc', 'the-thao-suc-khoe')
         tag = request.form.get('tag', '').strip()
 
         if not ten or gia <= 0 or gia_cu <= 0 or not link_affiliate:
@@ -799,7 +877,7 @@ def edit_product(id):
         gia_cu_input = request.form.get('gia_cu', '').strip()
         gia_cu = int(gia_cu_input) if gia_cu_input else 0
         link_affiliate = request.form.get('link_affiliate', '').strip()
-        danh_muc = request.form.get('danh_muc', 'the-thao-nam')
+        danh_muc = request.form.get('danh_muc', 'the-thao-suc-khoe')
         tag = request.form.get('tag', '').strip()
 
         if not ten or gia <= 0 or (gia_cu_input and gia_cu <= 0) or not link_affiliate:

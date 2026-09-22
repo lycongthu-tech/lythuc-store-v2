@@ -113,9 +113,11 @@
         .category-add-form { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(150px, 1fr) 90px auto; gap: 8px; margin-bottom: 14px; }
         .category-add-form input, .category-add-form select { min-width: 0; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; }
         .category-add-form button, .category-edit-form button { border: 0; background: #16a34a; color: white; padding: 10px 14px; border-radius: 6px; font-weight: 700; cursor: pointer; }
-        .category-list-admin { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
+        .category-list-admin { display: flex; flex-direction: column; gap: 8px; }
         .category-admin-item { display: flex; align-items: center; gap: 8px; padding: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; }
         .category-admin-item.is-child { margin-left: calc(var(--category-depth) * 22px); }
+        .category-admin-item.is-root { background: #eef4ff; border-color: #c7d7fe; }
+        .category-fixed-label { flex: 0 0 auto; color: #2563eb; font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
         .category-edit-form { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(120px, 1fr) 68px auto; flex: 1; gap: 6px; min-width: 0; }
         .category-edit-form input, .category-edit-form select { min-width: 0; padding: 7px 8px; border: 1px solid #cbd5e1; border-radius: 5px; }
         .category-edit-form button { background: #2563eb; padding: 7px 9px; }
@@ -201,9 +203,10 @@
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <input type="text" name="name" placeholder="Tên danh mục mới" required maxlength="120">
                 <select name="parent_id" aria-label="Danh mục cha">
-                    <option value="">Danh mục chính</option>
-                    {% for category in categories %}
-                    <option value="{{ category.id }}">{{ category.name }}</option>
+                    <option value="">Chọn danh mục chính</option>
+                    {% for category in category_tree recursive %}
+                    <option value="{{ category.id }}">{{ ('— ' * category.depth) ~ category.name }}</option>
+                    {% if category.children %}{{ loop(category.children) }}{% endif %}
                     {% endfor %}
                 </select>
                 <input type="number" name="sort_order" value="0" min="0" aria-label="Thứ tự">
@@ -211,23 +214,26 @@
             </form>
             <div class="category-list-admin">
                 {% for category in category_tree recursive %}
-                <div class="category-admin-item{% if category.depth %} is-child{% endif %}" style="--category-depth: {{ category.depth }};">
+                <div class="category-admin-item{% if category.depth %} is-child{% else %} is-root{% endif %}" style="--category-depth: {{ category.depth }};">
                     <form class="category-edit-form" action="/admin/categories/edit/{{ category.id }}" method="POST">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                        <input type="text" name="name" value="{{ category.name }}" required maxlength="120" aria-label="Tên danh mục">
-                        <select name="parent_id" aria-label="Danh mục cha">
+                        <input type="text" name="name" value="{{ category.name }}" required maxlength="120" aria-label="Tên danh mục" {% if category.slug in fixed_category_slugs %}readonly{% endif %}>
+                        <select name="parent_id" aria-label="Danh mục cha" {% if category.slug in fixed_category_slugs %}disabled{% endif %}>
                             <option value="">Danh mục chính</option>
-                            {% for option in categories %}
-                            {% if option.id != category.id %}<option value="{{ option.id }}" {% if option.id == category.parent_id %}selected{% endif %}>{{ option.name }}</option>{% endif %}
+                            {% for option in category_tree recursive %}
+                            {% if option.id != category.id %}<option value="{{ option.id }}" {% if option.id == category.parent_id %}selected{% endif %}>{{ ('— ' * option.depth) ~ option.name }}</option>{% endif %}
+                            {% if option.children %}{{ loop(option.children) }}{% endif %}
                             {% endfor %}
                         </select>
-                        <input type="number" name="sort_order" value="{{ category.sort_order }}" min="0" aria-label="Thứ tự">
+                        <input type="number" name="sort_order" value="{{ category.sort_order }}" min="0" aria-label="Thứ tự" {% if category.slug in fixed_category_slugs %}readonly{% endif %}>
                         <button type="submit" title="Lưu danh mục"><i class="fa-solid fa-check"></i></button>
                     </form>
+                    {% if category.slug in fixed_category_slugs %}<span class="category-fixed-label">CỐ ĐỊNH</span>{% else %}
                     <form class="category-delete-form" action="/admin/categories/delete/{{ category.id }}" method="POST" onsubmit="return confirm('Bạn có chắc chắn muốn xóa danh mục này không?');">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <button type="submit" title="Xóa danh mục"><i class="fa-solid fa-trash"></i></button>
                     </form>
+                    {% endif %}
                 </div>
                 {% if category.children %}{{ loop(category.children) }}{% endif %}
                 {% endfor %}
