@@ -91,20 +91,10 @@
             background: var(--surface);
             border-bottom: 1px solid var(--line);
             color: var(--ink);
-            text-align: center;
-            padding: 42px 20px 38px;
-            margin-bottom: 24px;
+            min-height: 18px;
+            padding: 8px 20px;
+            margin-bottom: 14px;
             position: relative;
-        }
-        .header-container h1 {
-            color: var(--ink);
-            font-size: clamp(1.8rem, 4vw, 2.55rem);
-            margin-bottom: 8px;
-            letter-spacing: 0.04em;
-        }
-        .header-container p {
-            color: var(--muted);
-            font-size: 1rem;
         }
         .search-panel {
             max-width: 860px;
@@ -264,16 +254,16 @@
         .sale-banner-wrap { max-width: 1240px; margin: 0 auto 26px; padding: 0 20px; }
         .sale-banner-slider { position: relative; overflow: hidden; border-radius: 18px; box-shadow: 0 10px 28px rgba(23, 32, 51, 0.1); }
         .sale-banner-track { display: flex; transition: transform 0.45s ease; }
-        .sale-banner { position: relative; flex: 0 0 100%; min-height: 220px; display: flex; align-items: center; overflow: hidden; padding: 34px clamp(24px, 6vw, 76px); color: white; }
+        .sale-banner { position: relative; flex: 0 0 100%; min-height: 250px; display: flex; align-items: center; overflow: hidden; padding: 34px clamp(44px, 8vw, 100px); color: white; }
         .sale-banner::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(10, 18, 35, 0.32), transparent 72%); pointer-events: none; }
         .sale-banner.has-image { background-size: cover; background-position: center; }
         .sale-orange { background: linear-gradient(120deg, #ef4d2f, #ff9b54); }
         .sale-blue { background: linear-gradient(120deg, #155eef, #53b1fd); }
         .sale-green { background: linear-gradient(120deg, #087443, #36b37e); }
         .sale-dark { background: linear-gradient(120deg, #172033, #475467); }
-        .sale-banner-copy { position: relative; z-index: 1; max-width: 620px; }
-        .sale-banner-store { margin-bottom: 8px; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.88; }
-        .sale-banner-title { margin-bottom: 8px; font-size: clamp(1.5rem, 4vw, 2.45rem); line-height: 1.08; }
+        .sale-banner-copy { position: relative; z-index: 1; width: min(100%, 720px); text-align: left; }
+        .sale-banner-store { margin-bottom: 12px; font-size: clamp(1.45rem, 4vw, 2.5rem); font-weight: 900; line-height: 1; letter-spacing: 0.04em; text-transform: uppercase; color: white; text-shadow: 0 3px 14px rgba(0,0,0,0.22); }
+        .sale-banner-title { margin-bottom: 8px; font-size: clamp(1.15rem, 3vw, 1.8rem); line-height: 1.12; font-weight: 800; }
         .sale-banner-subtitle { font-size: 0.98rem; opacity: 0.92; }
         .banner-arrow { position: absolute; top: 50%; z-index: 2; width: 36px; height: 36px; transform: translateY(-50%); border: 0; border-radius: 50%; background: rgba(255,255,255,0.86); color: var(--ink); cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.14); }
         .banner-arrow.prev { left: 14px; }
@@ -287,11 +277,15 @@
             right: 20px;
             background: #f5f6f8;
             color: var(--muted);
-            padding: 8px 13px;
+            width: 30px;
+            height: 30px;
+            padding: 0;
             border: 1px solid var(--line);
-            border-radius: 8px;
+            border-radius: 50%;
             text-decoration: none;
-            font-size: 0.9rem;
+            font-size: 0.8rem;
+            display: grid;
+            place-items: center;
             transition: background 0.3s;
         }
         .admin-link:hover {
@@ -517,13 +511,7 @@
         }
 
         @media (max-width: 768px) {
-            .header-container {
-                padding: 30px 16px 28px;
-                margin-bottom: 18px;
-            }
-            .header-container h1 {
-                font-size: 1.7rem;
-            }
+            .header-container { padding: 7px 12px; margin-bottom: 12px; }
             .search-form button {
                 padding: 0 14px;
             }
@@ -536,7 +524,8 @@
             .category-list { display: block; }
             .root-category-strip { margin-top: 8px; width: 100%; }
             .sale-banner-wrap { padding: 0 12px; margin-bottom: 20px; }
-            .sale-banner { min-height: 190px; padding: 28px 42px 34px 24px; }
+            .sale-banner { min-height: 210px; padding: 28px 42px 34px 24px; }
+            .sale-banner-store { font-size: 1.45rem; }
             .banner-arrow { width: 32px; height: 32px; }
             .sort-control { justify-content: space-between; }
             .sort-control select { flex: 1; }
@@ -624,10 +613,33 @@
     </aside>
 
     <div class="header-container">
-        <a href="/admin" class="admin-link"><i class="fa-solid fa-lock"></i> Quản Trị</a>
-        <h1>LÝ THỨC STORE</h1>
-        <p>Hệ thống mua sắm chính hãng tích hợp TikTok Shop ưu đãi tốt nhất</p>
+        <a href="/admin" class="admin-link" title="Quản trị" aria-label="Mở trang quản trị"><i class="fa-solid fa-lock"></i></a>
     </div>
+
+    {% if banners %}
+    <section class="sale-banner-wrap" aria-label="Banner khuyến mãi">
+        <div class="sale-banner-slider" id="saleBannerSlider">
+            <div class="sale-banner-track" id="saleBannerTrack">
+                {% for banner in banners %}
+                <a class="sale-banner {{ banner_templates[banner.template][2] if banner.template in banner_templates else 'sale-dark' }}{% if banner.image_url %} has-image{% endif %}" href="{{ banner.link_url or '#' }}"{% if banner.image_url %} style="background-image: url('{{ banner.image_url }}');"{% endif %}>
+                    <div class="sale-banner-copy">
+                        <div class="sale-banner-store">{{ banner.store_name }}</div>
+                        <h2 class="sale-banner-title">{{ banner.title }}</h2>
+                        {% if banner.subtitle %}<p class="sale-banner-subtitle">{{ banner.subtitle }}</p>{% endif %}
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+            {% if banners|length > 1 %}
+            <button type="button" class="banner-arrow prev" id="bannerPrev" aria-label="Banner trước"><i class="fa-solid fa-chevron-left"></i></button>
+            <button type="button" class="banner-arrow next" id="bannerNext" aria-label="Banner tiếp theo"><i class="fa-solid fa-chevron-right"></i></button>
+            <div class="banner-dots" id="bannerDots">
+                {% for banner in banners %}<button type="button" class="banner-dot{% if loop.first %} active{% endif %}" aria-label="Banner {{ loop.index }}"></button>{% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </section>
+    {% endif %}
 
     <div class="search-panel">
         <form class="search-form" method="get" action="/">
@@ -658,31 +670,6 @@
             </select>
         </label>
     </div>
-
-    {% if banners %}
-    <section class="sale-banner-wrap" aria-label="Banner khuyến mãi">
-        <div class="sale-banner-slider" id="saleBannerSlider">
-            <div class="sale-banner-track" id="saleBannerTrack">
-                {% for banner in banners %}
-                <a class="sale-banner {{ banner_templates[banner.template][2] if banner.template in banner_templates else 'sale-dark' }}{% if banner.image_url %} has-image{% endif %}" href="{{ banner.link_url or '#' }}"{% if banner.image_url %} style="background-image: url('{{ banner.image_url }}');"{% endif %}>
-                    <div class="sale-banner-copy">
-                        <div class="sale-banner-store">{{ banner.store_name }}</div>
-                        <h2 class="sale-banner-title">{{ banner.title }}</h2>
-                        {% if banner.subtitle %}<p class="sale-banner-subtitle">{{ banner.subtitle }}</p>{% endif %}
-                    </div>
-                </a>
-                {% endfor %}
-            </div>
-            {% if banners|length > 1 %}
-            <button type="button" class="banner-arrow prev" id="bannerPrev" aria-label="Banner trước"><i class="fa-solid fa-chevron-left"></i></button>
-            <button type="button" class="banner-arrow next" id="bannerNext" aria-label="Banner tiếp theo"><i class="fa-solid fa-chevron-right"></i></button>
-            <div class="banner-dots" id="bannerDots">
-                {% for banner in banners %}<button type="button" class="banner-dot{% if loop.first %} active{% endif %}" aria-label="Banner {{ loop.index }}"></button>{% endfor %}
-            </div>
-            {% endif %}
-        </div>
-    </section>
-    {% endif %}
 
    <div class="grid-container" id="productGrid">
     {% for sp in san_pham %}
