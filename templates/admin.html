@@ -149,6 +149,15 @@
         .banner-admin-actions form { margin: 0; }
         .banner-edit { padding-top: 10px; border-top: 1px solid #e2e8f0; }
         .banner-edit summary { cursor: pointer; color: #2563eb; font-size: 0.82rem; font-weight: 700; }
+        .site-settings-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 24px; overflow: hidden; }
+        .site-settings-card[open] { box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06); }
+        .site-settings-summary { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; cursor: pointer; list-style: none; }
+        .site-settings-summary::-webkit-details-marker { display: none; }
+        .site-settings-summary::after { content: '\f078'; font-family: 'Font Awesome 6 Free'; color: #64748b; }
+        .site-settings-content { padding: 0 18px 18px; border-top: 1px solid #e2e8f0; }
+        .site-settings-form { display: grid; grid-template-columns: 180px minmax(0, 1fr) minmax(0, 1fr) auto; align-items: end; gap: 10px; padding-top: 16px; }
+        .site-settings-form label { display: flex; flex-direction: column; gap: 5px; color: #475569; font-size: 0.8rem; font-weight: 700; }
+        .site-settings-form input, .site-settings-form select { width: 100%; padding: 9px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font: inherit; }
 
         @media (max-width: 768px) {
             body { padding: 10px; }
@@ -205,6 +214,7 @@
             .banner-admin-item { grid-template-columns: 64px minmax(0, 1fr); }
             .banner-admin-thumb { width: 64px; height: 52px; }
             .banner-admin-actions { grid-column: 1 / -1; justify-content: flex-end; }
+            .site-settings-form { grid-template-columns: 1fr; align-items: stretch; }
         }
     </style>
 </head>
@@ -286,6 +296,7 @@
                     <div class="banner-form-grid">
                         <label class="wide">Tiêu đề Banner<input type="text" name="title" placeholder="Sale Khai Trương" required></label>
                         <label class="wide">Tên cửa hàng<input type="text" name="store_name" value="Lý Thúc Store"></label>
+                        <label>Cỡ tên (px)<input type="number" name="store_name_size" value="40" min="24" max="72"></label>
                         <label class="wide">Mô tả ngắn<textarea name="subtitle" placeholder="Ưu đãi đặc biệt dành cho khách hàng"></textarea></label>
                         <label>Mẫu nhanh<select name="template">
                             {% for key, template in banner_templates.items() %}<option value="{{ key }}">{{ template[0] }}</option>{% endfor %}
@@ -310,6 +321,7 @@
                                     <div class="banner-form-grid">
                                         <label class="wide">Tiêu đề<input type="text" name="title" value="{{ banner.title }}" required></label>
                                         <label class="wide">Tên cửa hàng<input type="text" name="store_name" value="{{ banner.store_name }}"></label>
+                                        <label>Cỡ tên (px)<input type="number" name="store_name_size" value="{{ banner.store_name_size|default(40) }}" min="24" max="72"></label>
                                         <label class="wide">Mô tả<textarea name="subtitle">{{ banner.subtitle or '' }}</textarea></label>
                                         <label>Mẫu<select name="template">{% for key, template in banner_templates.items() %}<option value="{{ key }}" {% if key == banner.template %}selected{% endif %}>{{ template[0] }}</option>{% endfor %}</select></label>
                                         <label>Thứ tự<input type="number" name="sort_order" value="{{ banner.sort_order }}" min="0"></label>
@@ -326,6 +338,19 @@
                     </div>
                     {% endfor %}
                 </div>
+            </div>
+        </details>
+
+        <details class="site-settings-card">
+            <summary class="site-settings-summary"><div class="categories-header"><h3><i class="fa-solid fa-palette"></i> Nền trang khách hàng</h3><span style="color: #64748b; font-size: 0.85rem;">Màu, ảnh hoặc ảnh cố định</span></div></summary>
+            <div class="site-settings-content">
+                <form class="site-settings-form" action="/admin/site-settings" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <label>Kiểu nền<select name="background_mode"><option value="color" {% if site_settings.background_mode == 'color' %}selected{% endif %}>Màu cố định</option><option value="image" {% if site_settings.background_mode == 'image' %}selected{% endif %}>Ảnh nền cuộn</option><option value="fixed" {% if site_settings.background_mode == 'fixed' %}selected{% endif %}>Ảnh nền cố định</option></select></label>
+                    <label>Màu nền<input type="color" name="background_color" value="{{ site_settings.background_color or '#f6f7f9' }}"></label>
+                    <label>URL ảnh nền<input type="url" name="background_image" value="{{ site_settings.background_image or '' }}" placeholder="https://..."></label>
+                    <button type="submit" class="banner-submit"><i class="fa-solid fa-floppy-disk"></i> Lưu nền</button>
+                </form>
             </div>
         </details>
 

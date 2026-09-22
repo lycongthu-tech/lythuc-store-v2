@@ -33,7 +33,7 @@ def validate_csrf():
     if request.method == 'POST' and request.endpoint in {
         'add_product', 'edit_product', 'delete_product',
         'add_category', 'edit_category', 'delete_category',
-        'add_banner', 'edit_banner', 'delete_banner'
+        'add_banner', 'edit_banner', 'delete_banner', 'update_site_settings'
     }:
         token = request.form.get('csrf_token')
         if not token or token != session.get('csrf_token'):
@@ -122,7 +122,7 @@ def get_active_banners():
         conn = get_db_connection()
         active_clause = 'is_active = TRUE' if DATABASE_URL else 'is_active = 1'
         rows = conn.execute(f'''
-            SELECT id, title, subtitle, store_name, image_url, link_url, template, sort_order
+            SELECT id, title, subtitle, store_name, store_name_size, image_url, link_url, template, sort_order
             FROM banners
             WHERE {active_clause}
             ORDER BY sort_order, id DESC
@@ -136,12 +136,23 @@ def get_active_banners():
 def get_all_banners():
     conn = get_db_connection()
     rows = conn.execute('''
-        SELECT id, title, subtitle, store_name, image_url, link_url, template, is_active, sort_order
+        SELECT id, title, subtitle, store_name, store_name_size, image_url, link_url, template, is_active, sort_order
         FROM banners
         ORDER BY sort_order, id DESC
     ''').fetchall()
     conn.close()
     return [dict(row) for row in rows]
+
+
+def get_site_settings():
+    cached = get_cached(('site-settings',))
+    if cached is None:
+        conn = get_db_connection()
+        rows = conn.execute('SELECT setting_key, setting_value FROM site_settings').fetchall()
+        conn.close()
+        cached = {row['setting_key']: row['setting_value'] for row in rows}
+        set_cached(('site-settings',), cached)
+    return cached
 
 
 def slugify_category(name):
@@ -342,11 +353,38 @@ def init_db():
 
     if DATABASE_URL:
         cursor.execute('''
+            CREATE TABLE IF NOT EXISTS site_settings (
+                setting_key TEXT PRIMARY KEY,
+                setting_value TEXT NOT NULL
+            )
+        ''')
+    else:
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS site_settings (
+                setting_key TEXT PRIMARY KEY,
+                setting_value TEXT NOT NULL
+            )
+        ''')
+    conn.commit()
+    default_settings = [('background_mode', 'color'), ('background_color', '#f6f7f9'), ('background_image', '')]
+    for setting_key, setting_value in default_settings:
+        query = '''
+            INSERT INTO site_settings (setting_key, setting_value) VALUES (%s, %s)
+            ON CONFLICT (setting_key) DO NOTHING
+        ''' if DATABASE_URL else '''
+            INSERT OR IGNORE INTO site_settings (setting_key, setting_value) VALUES (?, ?)
+        '''
+        conn.execute(query, (setting_key, setting_value))
+    conn.commit()
+
+    if DATABASE_URL:
+        cursor.execute('''
             CREATE TABLE IF NOT EXISTS banners (
                 id SERIAL PRIMARY KEY,
                 title TEXT NOT NULL,
                 subtitle TEXT,
                 store_name TEXT NOT NULL DEFAULT 'Lý Thúc Store',
+                store_name_size INTEGER NOT NULL DEFAULT 40,
                 image_url TEXT,
                 link_url TEXT,
                 template TEXT NOT NULL DEFAULT 'custom',
@@ -361,6 +399,7 @@ def init_db():
                 title TEXT NOT NULL,
                 subtitle TEXT,
                 store_name TEXT NOT NULL DEFAULT 'Lý Thúc Store',
+                store_name_size INTEGER NOT NULL DEFAULT 40,
                 image_url TEXT,
                 link_url TEXT,
                 template TEXT NOT NULL DEFAULT 'custom',
@@ -369,19 +408,27 @@ def init_db():
             )
         ''')
     conn.commit()
+    if DATABASE_URL:
+        cursor.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'banners'")
+        banner_columns = {row['column_name'] for row in cursor.fetchall()}
+    else:
+        banner_columns = {row[1] for row in cursor.execute('PRAGMA table_info(banners)').fetchall()}
+    if 'store_name_size' not in banner_columns:
+        cursor.execute('ALTER TABLE banners ADD COLUMN store_name_size INTEGER NOT NULL DEFAULT 40')
+        conn.commit()
     banner_count = conn.execute('SELECT COUNT(*) AS count FROM banners').fetchone()
     banner_count = banner_count['count'] if DATABASE_URL else banner_count[0]
     if banner_count == 0:
         banner_values = [
-            ('Sale Khai Trương', 'Ưu đãi đặc biệt dành cho những đơn hàng đầu tiên', 'Lý Thúc Store', None, '/', 'opening', True, 0),
-            ('Sale Giữa Tháng', 'Chọn món yêu thích, săn deal giá tốt mỗi ngày', 'Lý Thúc Store', None, '/', 'mid-month', True, 1),
+            ('Sale Khai Trương', 'Ưu đãi đặc biệt dành cho những đơn hàng đầu tiên', 'Lý Thúc Store', 40, None, '/', 'opening', True, 0),
+            ('Sale Giữa Tháng', 'Chọn món yêu thích, săn deal giá tốt mỗi ngày', 'Lý Thúc Store', 40, None, '/', 'mid-month', True, 1),
         ]
         insert_banner_query = '''
-            INSERT INTO banners (title, subtitle, store_name, image_url, link_url, template, is_active, sort_order)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO banners (title, subtitle, store_name, store_name_size, image_url, link_url, template, is_active, sort_order)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         ''' if DATABASE_URL else '''
-            INSERT INTO banners (title, subtitle, store_name, image_url, link_url, template, is_active, sort_order)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO banners (title, subtitle, store_name, store_name_size, image_url, link_url, template, is_active, sort_order)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         '''
         conn.executemany(insert_banner_query, banner_values)
         conn.commit()
@@ -612,6 +659,7 @@ def index():
         selected_root_slug=get_category_root_slug(selected_category),
         banners=get_active_banners(),
         banner_templates=DEFAULT_BANNER_TEMPLATES,
+        site_settings=get_site_settings(),
         selected_category=selected_category,
         search_query=search_query
     )
@@ -714,11 +762,12 @@ def banner_form_values():
         title = DEFAULT_BANNER_TEMPLATES[template][0]
     if not subtitle and template in DEFAULT_BANNER_TEMPLATES:
         subtitle = DEFAULT_BANNER_TEMPLATES[template][1]
+    store_name_size = min(72, max(24, int(request.form.get('store_name_size', '40') or 40)))
     sort_order = int(request.form.get('sort_order', '0') or 0)
     is_active = request.form.get('is_active') == '1'
     image_url = request.form.get('image_url', '').strip()
     upload = save_uploaded_image(request.files.get('banner_image'))
-    return title, subtitle, store_name, upload or image_url, request.form.get('link_url', '').strip(), template, is_active, sort_order
+    return title, subtitle, store_name, store_name_size, upload or image_url, request.form.get('link_url', '').strip(), template, is_active, sort_order
 
 
 @app.route('/admin/banners/add', methods=['POST'])
@@ -732,8 +781,8 @@ def add_banner():
             raise ValueError('Vui lòng nhập tiêu đề Banner.')
         conn = get_db_connection()
         query = '''
-            INSERT INTO banners (title, subtitle, store_name, image_url, link_url, template, is_active, sort_order)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO banners (title, subtitle, store_name, store_name_size, image_url, link_url, template, is_active, sort_order)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         '''
         conn.execute(query, values)
         conn.commit()
@@ -770,7 +819,7 @@ def edit_banner(id):
         values[3] = values[3] or current['image_url']
         conn.execute('''
             UPDATE banners
-            SET title = ?, subtitle = ?, store_name = ?, image_url = ?, link_url = ?, template = ?, is_active = ?, sort_order = ?
+            SET title = ?, subtitle = ?, store_name = ?, store_name_size = ?, image_url = ?, link_url = ?, template = ?, is_active = ?, sort_order = ?
             WHERE id = ?
         ''', (*values, id))
         conn.commit()
@@ -801,6 +850,35 @@ def delete_banner(id):
     conn.close()
     invalidate_product_cache()
     flash('Đã xóa Banner.', 'success')
+    return redirect(url_for('admin'))
+
+
+@app.route('/admin/site-settings', methods=['POST'])
+def update_site_settings():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    mode = request.form.get('background_mode', 'color')
+    if mode not in {'color', 'image', 'fixed'}:
+        mode = 'color'
+    color = request.form.get('background_color', '#f6f7f9').strip() or '#f6f7f9'
+    image = request.form.get('background_image', '').strip()
+    conn = get_db_connection()
+    values = [('background_mode', mode), ('background_color', color), ('background_image', image)]
+    for key, value in values:
+        if DATABASE_URL:
+            conn.execute('''
+                INSERT INTO site_settings (setting_key, setting_value) VALUES (?, ?)
+                ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value
+            ''', (key, value))
+        else:
+            conn.execute('''
+                INSERT INTO site_settings (setting_key, setting_value) VALUES (?, ?)
+                ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value
+            ''', (key, value))
+    conn.commit()
+    conn.close()
+    invalidate_product_cache()
+    flash('Đã cập nhật nền trang khách hàng.', 'success')
     return redirect(url_for('admin'))
 
 
@@ -992,6 +1070,7 @@ def admin():
         fixed_category_slugs=FIXED_CATEGORY_SLUGS,
         banners=get_all_banners(),
         banner_templates=DEFAULT_BANNER_TEMPLATES,
+        site_settings=get_site_settings(),
         selected_category=selected_category,
         search_query=search_query,
         csrf_token=generate_csrf_token()
