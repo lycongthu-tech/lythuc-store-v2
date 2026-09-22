@@ -5,9 +5,11 @@ import os
 import sqlite3
 import time
 import secrets
+import threading
 import cloudinary
 import cloudinary.uploader
 import psycopg2
+from psycopg2.pool import ThreadedConnectionPool
 from psycopg2.extras import RealDictCursor
 
 app = Flask(__name__)
@@ -33,6 +35,15 @@ def validate_csrf():
             return redirect(url_for('admin'))
 
 
+@app.after_request
+def add_cache_headers(response):
+    if request.path == '/' or request.path == '/api/search':
+        response.headers['Cache-Control'] = 'public, max-age=30, stale-while-revalidate=60'
+    elif request.path.startswith('/static/'):
+        response.headers['Cache-Control'] = 'public, max-age=86400'
+    return response
+
+
 cloudinary.config(
     cloud_name=(os.environ.get('CLOUDINARY_CLOUD_NAME') or '').strip(),
     api_key=(os.environ.get('CLOUDINARY_API_KEY') or '').strip(),
@@ -53,6 +64,10 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 DATABASE = os.path.join(app.root_path, 'dulieu.db')
+CACHE_TTL_SECONDS = 45
+_cache = {}
+_cache_lock = threading.Lock()
+_postgres_pool = None
 CATEGORY_LABELS = {
     'all': 'Tất cả',
     'the-thao-nam': 'Thể thao nam',
@@ -60,6 +75,34 @@ CATEGORY_LABELS = {
     'phu-kien': 'Phụ kiện & dụng cụ',
     'whey-tpbs': 'Whey / Thực phẩm bổ sung'
 }
+
+
+def get_cached(key):
+    with _cache_lock:
+        cached = _cache.get(key)
+        if not cached or cached[0] <= time.monotonic():
+            _cache.pop(key, None)
+            return None
+        return cached[1]
+
+
+def set_cached(key, value, ttl=CACHE_TTL_SECONDS):
+    with _cache_lock:
+        _cache[key] = (time.monotonic() + ttl, value)
+    return value
+
+
+def invalidate_product_cache():
+    with _cache_lock:
+        _cache.clear()
+
+
+def optimize_image_url(image_url, width=600, height=600):
+    """Add Cloudinary's automatic format/quality and a bounded crop when possible."""
+    if not image_url or 'res.cloudinary.com' not in image_url or '/upload/' not in image_url:
+        return image_url
+    transformation = f'f_auto,q_auto,w_{width},h_{height},c_fill'
+    return image_url.replace('/upload/', f'/upload/{transformation}/', 1)
 
 
 def save_uploaded_image(file_storage):
@@ -95,7 +138,14 @@ def save_uploaded_image(file_storage):
 def get_db_connection():
     if DATABASE_URL:
         postgres_url = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
-        return PostgresConnection(psycopg2.connect(postgres_url))
+        global _postgres_pool
+        if _postgres_pool is None:
+            _postgres_pool = ThreadedConnectionPool(
+                minconn=1,
+                maxconn=int(os.environ.get('DB_POOL_MAX', '5')),
+                dsn=postgres_url,
+            )
+        return PostgresConnection(_postgres_pool, _postgres_pool.getconn())
 
     if IS_PRODUCTION:
         raise RuntimeError('DATABASE_URL chưa được cấu hình trên môi trường production.')
@@ -106,7 +156,8 @@ def get_db_connection():
 
 
 class PostgresConnection:
-    def __init__(self, connection):
+    def __init__(self, pool, connection):
+        self.pool = pool
         self.connection = connection
 
     @staticmethod
@@ -133,7 +184,10 @@ class PostgresConnection:
         self.connection.rollback()
 
     def close(self):
-        self.connection.close()
+        try:
+            self.connection.rollback()
+        finally:
+            self.pool.putconn(self.connection)
 
 
 def init_db():
@@ -188,6 +242,10 @@ def init_db():
             except Exception:
                 pass
 
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_san_pham_danh_muc_id ON san_pham (danh_muc, id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_san_pham_ten_lower ON san_pham (LOWER(ten))')
+    conn.commit()
+
     cursor.execute('SELECT COUNT(*) AS count FROM san_pham')
     count_row = cursor.fetchone()
     count = count_row['count'] if DATABASE_URL else count_row[0]
@@ -227,41 +285,47 @@ def format_gia(gia):
 def index():
     selected_category = request.args.get('danh_muc', 'all')
     search_query = request.args.get('q', '').strip()
-    conn = get_db_connection()
+    cache_key = ('catalog', selected_category or 'all', search_query.casefold())
+    san_pham = get_cached(cache_key)
+    if san_pham is None:
+        conn = get_db_connection()
+        query = '''
+            SELECT id, ten, gia, gia_cu, anh, link_affiliate, danh_muc, tag
+            FROM san_pham
+        '''
+        conditions = []
+        parameters = []
+        if selected_category and selected_category != 'all':
+            conditions.append('danh_muc = ?')
+            parameters.append(selected_category)
+        if search_query:
+            conditions.append('LOWER(ten) LIKE LOWER(?)')
+            parameters.append(f'%{search_query}%')
+        if conditions:
+            query += ' WHERE ' + ' AND '.join(conditions)
+        sp_db = conn.execute(query + ' ORDER BY id DESC', tuple(parameters)).fetchall()
+        conn.close()
 
-    query = 'SELECT * FROM san_pham'
-    conditions = []
-    parameters = []
-    if selected_category and selected_category != 'all':
-        conditions.append('danh_muc = ?')
-        parameters.append(selected_category)
-    if search_query:
-        conditions.append('LOWER(ten) LIKE LOWER(?)')
-        parameters.append(f'%{search_query}%')
-    if conditions:
-        query += ' WHERE ' + ' AND '.join(conditions)
-    sp_db = conn.execute(query + ' ORDER BY id DESC', tuple(parameters)).fetchall()
-    conn.close()
-
-    san_pham = []
-    for item in sp_db:
-        gia_moi = item['gia']
-        gia_cu = item['gia_cu'] if item['gia_cu'] else int(gia_moi * 1.25)
-        phan_tram_giam = int(round((1 - (gia_moi / gia_cu)) * 100)) if gia_cu > 0 else 0
-        raw_tag = (item['tag'] or '').strip()
-        tag_text = raw_tag if raw_tag else f'-{phan_tram_giam}%'
-        san_pham.append({
-            'id': item['id'],
-            'ten': item['ten'],
-            'gia_formatted': format_gia(gia_moi),
-            'gia_cu_formatted': format_gia(gia_cu),
-            'giam_gia': f'-{phan_tram_giam}%',
-            'tag': tag_text,
-            'anh': item['anh'],
-            'link_affiliate': item['link_affiliate'],
-            'danh_muc': item['danh_muc'],
-            'tag_style': 'sale' if raw_tag and raw_tag.startswith('-') else 'custom'
-        })
+        san_pham = []
+        for item in sp_db:
+            gia_moi = item['gia']
+            gia_cu = item['gia_cu'] if item['gia_cu'] else int(gia_moi * 1.25)
+            phan_tram_giam = int(round((1 - (gia_moi / gia_cu)) * 100)) if gia_cu > 0 else 0
+            raw_tag = (item['tag'] or '').strip()
+            tag_text = raw_tag if raw_tag else f'-{phan_tram_giam}%'
+            san_pham.append({
+                'id': item['id'],
+                'ten': item['ten'],
+                'gia_formatted': format_gia(gia_moi),
+                'gia_cu_formatted': format_gia(gia_cu),
+                'giam_gia': f'-{phan_tram_giam}%',
+                'tag': tag_text,
+                'anh': optimize_image_url(item['anh']),
+                'link_affiliate': item['link_affiliate'],
+                'danh_muc': item['danh_muc'],
+                'tag_style': 'sale' if raw_tag and raw_tag.startswith('-') else 'custom'
+            })
+        set_cached(cache_key, san_pham)
 
     return render_template(
         'index.html',
@@ -278,25 +342,29 @@ def search_products():
     if not search_query:
         return jsonify([])
 
-    conn = get_db_connection()
-    rows = conn.execute('''
-        SELECT id, ten, gia, anh
-        FROM san_pham
-        WHERE LOWER(ten) LIKE LOWER(?)
-        ORDER BY id DESC
-        LIMIT 8
-    ''', (f'%{search_query}%',)).fetchall()
-    conn.close()
-
-    return jsonify([
+    cache_key = ('search', search_query.casefold())
+    results = get_cached(cache_key)
+    if results is None:
+        conn = get_db_connection()
+        rows = conn.execute('''
+            SELECT id, ten, gia, anh
+            FROM san_pham
+            WHERE LOWER(ten) LIKE LOWER(?)
+            ORDER BY id DESC
+            LIMIT 8
+        ''', (f'%{search_query}%',)).fetchall()
+        conn.close()
+        results = [
         {
             'id': row['id'],
             'ten': row['ten'],
             'gia': format_gia(row['gia']),
-            'anh': row['anh']
+            'anh': optimize_image_url(row['anh'], 96, 96)
         }
         for row in rows
-    ])
+        ]
+        set_cached(cache_key, results, ttl=20)
+    return jsonify(results)
 
 
 @app.route('/api/admin-search')
@@ -360,7 +428,10 @@ def admin():
     selected_category = request.args.get('danh_muc', 'all')
     search_query = request.args.get('q', '').strip()
     conn = get_db_connection()
-    query = 'SELECT * FROM san_pham'
+    query = '''
+        SELECT id, ten, gia, gia_cu, anh, link_affiliate, danh_muc, tag
+        FROM san_pham
+    '''
     conditions = []
     parameters = []
     if selected_category and selected_category != 'all':
@@ -430,6 +501,7 @@ def add_product():
             VALUES (?, ?, ?, ?, ?, ?, ?)
         ''', (ten, gia, gia_cu, anh, link_affiliate, danh_muc, tag))
         conn.commit()
+        invalidate_product_cache()
         flash('Đã thêm sản phẩm thành công.', 'success')
     except (ValueError, TypeError) as error:
         if conn:
@@ -483,6 +555,7 @@ def edit_product(id):
             WHERE id = ?
         ''', (ten, gia, gia_cu, anh, link_affiliate, danh_muc, tag, id))
         conn.commit()
+        invalidate_product_cache()
         flash('Đã cập nhật sản phẩm thành công.', 'success')
     except (ValueError, TypeError) as error:
         if conn:
@@ -514,6 +587,7 @@ def delete_product(id):
     conn.execute('DELETE FROM san_pham WHERE id = ?', (id,))
     conn.commit()
     conn.close()
+    invalidate_product_cache()
 
     return redirect(url_for('admin'))
 

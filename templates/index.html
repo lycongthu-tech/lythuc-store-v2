@@ -25,6 +25,29 @@
             padding-bottom: 64px;
             overflow-x: hidden;
         }
+        .page-loader {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            display: grid;
+            place-items: center;
+            background: rgba(246, 247, 249, 0.78);
+            backdrop-filter: blur(3px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.18s ease;
+        }
+        .page-loader::after {
+            content: '';
+            width: 30px;
+            height: 30px;
+            border: 3px solid #dfe3e9;
+            border-top-color: var(--ink);
+            border-radius: 50%;
+            animation: loader-spin 0.7s linear infinite;
+        }
+        body.is-navigating .page-loader { opacity: 1; pointer-events: auto; }
+        @keyframes loader-spin { to { transform: rotate(360deg); } }
         .header-container {
             background: var(--surface);
             border-bottom: 1px solid var(--line);
@@ -256,6 +279,12 @@
             display: block;
             background: #f4f5f7;
         }
+        .product-image.is-loading {
+            background: linear-gradient(110deg, #f2f3f5 8%, #fafafa 18%, #f2f3f5 33%);
+            background-size: 200% 100%;
+            animation: image-skeleton 1.2s linear infinite;
+        }
+        @keyframes image-skeleton { to { background-position-x: -200%; } }
         .product-info {
             padding: 16px 16px 7px;
             flex-grow: 1;
@@ -483,12 +512,15 @@
                 scroll-behavior: auto !important;
                 transition-duration: 0.01ms !important;
             }
+            .product-image.is-loading { animation: none; }
         }
     </style>
 
 </head>
 
 <body>
+
+    <div class="page-loader" aria-hidden="true"></div>
 
     <div class="header-container">
         <a href="/admin" class="admin-link"><i class="fa-solid fa-lock"></i> Quản Trị</a>
@@ -510,7 +542,7 @@
     <div class="catalog-toolbar">
         <div class="category-list">
             {% for key, label in danh_muc_options.items() %}
-            <a href="/?danh_muc={{ key }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}" class="category-chip{% if selected_category == key %} active{% endif %}">
+            <a href="/?danh_muc={{ key }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}" class="category-chip category-link{% if selected_category == key %} active{% endif %}">
                 {{ label }}
             </a>
             {% endfor %}
@@ -538,7 +570,7 @@
         {% endif %}
         <!-- Thẻ a bọc từ ảnh xuống tên -->
         <a href="{{ sp.link_affiliate }}" target="_blank" style="text-decoration: none; color: inherit; display: block;">
-            <img src="{{ sp.anh }}" alt="{{ sp.ten }}" loading="lazy" decoding="async" width="600" height="600">
+            <img class="product-image is-loading" src="{{ sp.anh }}" alt="{{ sp.ten }}" loading="{{ 'eager' if loop.index <= 2 else 'lazy' }}" decoding="async" fetchpriority="{{ 'high' if loop.index == 1 else 'auto' }}" width="600" height="600">
             <div class="product-info">
                 <div>
                     <div class="product-title">{{ sp.ten }}</div>
@@ -577,6 +609,18 @@
     </div>
 
     <script>
+        const productImages = document.querySelectorAll('.product-image');
+        productImages.forEach((image) => {
+            const finishLoading = () => image.classList.remove('is-loading');
+            if (image.complete) finishLoading();
+            else image.addEventListener('load', finishLoading, { once: true });
+            image.addEventListener('error', finishLoading, { once: true });
+        });
+
+        document.querySelectorAll('.category-link').forEach((link) => {
+            link.addEventListener('click', () => document.body.classList.add('is-navigating'));
+        });
+
         const productGrid = document.getElementById('productGrid');
         const sortProducts = document.getElementById('sortProducts');
         sortProducts.addEventListener('change', () => {
