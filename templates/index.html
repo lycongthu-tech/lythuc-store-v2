@@ -261,6 +261,26 @@
             outline: 0;
         }
         .sort-control select:focus { border-color: var(--ink); }
+        .sale-banner-wrap { max-width: 1240px; margin: 0 auto 26px; padding: 0 20px; }
+        .sale-banner-slider { position: relative; overflow: hidden; border-radius: 18px; box-shadow: 0 10px 28px rgba(23, 32, 51, 0.1); }
+        .sale-banner-track { display: flex; transition: transform 0.45s ease; }
+        .sale-banner { position: relative; flex: 0 0 100%; min-height: 220px; display: flex; align-items: center; overflow: hidden; padding: 34px clamp(24px, 6vw, 76px); color: white; }
+        .sale-banner::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(10, 18, 35, 0.32), transparent 72%); pointer-events: none; }
+        .sale-banner.has-image { background-size: cover; background-position: center; }
+        .sale-orange { background: linear-gradient(120deg, #ef4d2f, #ff9b54); }
+        .sale-blue { background: linear-gradient(120deg, #155eef, #53b1fd); }
+        .sale-green { background: linear-gradient(120deg, #087443, #36b37e); }
+        .sale-dark { background: linear-gradient(120deg, #172033, #475467); }
+        .sale-banner-copy { position: relative; z-index: 1; max-width: 620px; }
+        .sale-banner-store { margin-bottom: 8px; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.88; }
+        .sale-banner-title { margin-bottom: 8px; font-size: clamp(1.5rem, 4vw, 2.45rem); line-height: 1.08; }
+        .sale-banner-subtitle { font-size: 0.98rem; opacity: 0.92; }
+        .banner-arrow { position: absolute; top: 50%; z-index: 2; width: 36px; height: 36px; transform: translateY(-50%); border: 0; border-radius: 50%; background: rgba(255,255,255,0.86); color: var(--ink); cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.14); }
+        .banner-arrow.prev { left: 14px; }
+        .banner-arrow.next { right: 14px; }
+        .banner-dots { position: absolute; z-index: 2; bottom: 14px; left: 50%; display: flex; gap: 6px; transform: translateX(-50%); }
+        .banner-dot { width: 7px; height: 7px; padding: 0; border: 0; border-radius: 50%; background: rgba(255,255,255,0.55); cursor: pointer; }
+        .banner-dot.active { width: 20px; border-radius: 999px; background: white; }
         .admin-link {
             position: absolute;
             top: 20px;
@@ -308,35 +328,27 @@
         }
         .discount-badge {
             position: absolute;
-            top: 10px;
-            right: 10px;
+            top: 8px;
+            right: 8px;
             z-index: 5;
             display: inline-flex;
             align-items: center;
-            gap: 6px;
             background: var(--accent);
             color: white;
-            font-size: 0.72rem;
+            font-size: 0.62rem;
             font-weight: 800;
             line-height: 1;
-            padding: 8px 10px;
+            padding: 5px 7px;
             border-radius: 999px;
-            box-shadow: 0 8px 18px rgba(255, 77, 109, 0.35);
-            border: 2px solid rgba(255,255,255,0.7);
+            box-shadow: 0 4px 10px rgba(255, 77, 109, 0.22);
+            border: 1px solid rgba(255,255,255,0.75);
             animation: none;
         }
         .discount-badge .tag-text {
-            font-size: 0.7rem;
-            letter-spacing: 0.05em;
+            font-size: 0.62rem;
+            letter-spacing: 0.03em;
             text-transform: uppercase;
-            background: rgba(255,255,255,0.18);
-            padding: 3px 5px;
-            border-radius: 999px;
-            animation: tagPulse 1.4s ease-in-out infinite;
-        }
-        .discount-badge .percent-text {
-            font-size: 0.7rem;
-            opacity: 0.96;
+            white-space: nowrap;
         }
         @keyframes discountFloat {
             0%, 100% { transform: translateY(0) scale(1); }
@@ -523,6 +535,9 @@
             }
             .category-list { display: block; }
             .root-category-strip { margin-top: 8px; width: 100%; }
+            .sale-banner-wrap { padding: 0 12px; margin-bottom: 20px; }
+            .sale-banner { min-height: 190px; padding: 28px 42px 34px 24px; }
+            .banner-arrow { width: 32px; height: 32px; }
             .sort-control { justify-content: space-between; }
             .sort-control select { flex: 1; }
             .grid-container {
@@ -644,15 +659,37 @@
         </label>
     </div>
 
+    {% if banners %}
+    <section class="sale-banner-wrap" aria-label="Banner khuyến mãi">
+        <div class="sale-banner-slider" id="saleBannerSlider">
+            <div class="sale-banner-track" id="saleBannerTrack">
+                {% for banner in banners %}
+                <a class="sale-banner {{ banner_templates[banner.template][2] if banner.template in banner_templates else 'sale-dark' }}{% if banner.image_url %} has-image{% endif %}" href="{{ banner.link_url or '#' }}"{% if banner.image_url %} style="background-image: url('{{ banner.image_url }}');"{% endif %}>
+                    <div class="sale-banner-copy">
+                        <div class="sale-banner-store">{{ banner.store_name }}</div>
+                        <h2 class="sale-banner-title">{{ banner.title }}</h2>
+                        {% if banner.subtitle %}<p class="sale-banner-subtitle">{{ banner.subtitle }}</p>{% endif %}
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+            {% if banners|length > 1 %}
+            <button type="button" class="banner-arrow prev" id="bannerPrev" aria-label="Banner trước"><i class="fa-solid fa-chevron-left"></i></button>
+            <button type="button" class="banner-arrow next" id="bannerNext" aria-label="Banner tiếp theo"><i class="fa-solid fa-chevron-right"></i></button>
+            <div class="banner-dots" id="bannerDots">
+                {% for banner in banners %}<button type="button" class="banner-dot{% if loop.first %} active{% endif %}" aria-label="Banner {{ loop.index }}"></button>{% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </section>
+    {% endif %}
+
    <div class="grid-container" id="productGrid">
     {% for sp in san_pham %}
     <div class="product-card" data-price="{{ sp.gia_formatted|replace('.', '')|replace('đ', '') }}" data-order="{{ loop.index }}">
-        {% if sp.gia_cu_formatted %}
+        {% if sp.tag and not sp.tag.startswith('-') and sp.tag != sp.giam_gia %}
         <div class="discount-badge">
-            {% if sp.tag and sp.tag != sp.giam_gia %}
-                <span class="tag-text">{{ sp.tag }}</span>
-            {% endif %}
-            <span class="percent-text">{{ sp.giam_gia }}</span>
+            <span class="tag-text">{{ sp.tag }}</span>
         </div>
         {% endif %}
         <!-- Thẻ a bọc từ ảnh xuống tên -->
@@ -722,6 +759,21 @@
                 parentList = parentItem.parentElement.closest('.drawer-children');
             }
         }
+
+        const bannerTrack = document.getElementById('saleBannerTrack');
+        const bannerSlides = bannerTrack ? bannerTrack.querySelectorAll('.sale-banner') : [];
+        const bannerDots = document.querySelectorAll('.banner-dot');
+        let bannerIndex = 0;
+        const showBanner = (index) => {
+            if (!bannerTrack || bannerSlides.length < 2) return;
+            bannerIndex = (index + bannerSlides.length) % bannerSlides.length;
+            bannerTrack.style.transform = `translateX(-${bannerIndex * 100}%)`;
+            bannerDots.forEach((dot, dotIndex) => dot.classList.toggle('active', dotIndex === bannerIndex));
+        };
+        document.getElementById('bannerPrev')?.addEventListener('click', () => showBanner(bannerIndex - 1));
+        document.getElementById('bannerNext')?.addEventListener('click', () => showBanner(bannerIndex + 1));
+        bannerDots.forEach((dot, dotIndex) => dot.addEventListener('click', () => showBanner(dotIndex)));
+        if (bannerSlides.length > 1) setInterval(() => showBanner(bannerIndex + 1), 6000);
 
         const productImages = document.querySelectorAll('.product-image');
         productImages.forEach((image) => {

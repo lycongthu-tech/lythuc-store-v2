@@ -32,7 +32,8 @@ def generate_csrf_token():
 def validate_csrf():
     if request.method == 'POST' and request.endpoint in {
         'add_product', 'edit_product', 'delete_product',
-        'add_category', 'edit_category', 'delete_category'
+        'add_category', 'edit_category', 'delete_category',
+        'add_banner', 'edit_banner', 'delete_banner'
     }:
         token = request.form.get('csrf_token')
         if not token or token != session.get('csrf_token'):
@@ -80,6 +81,12 @@ DEFAULT_CATEGORIES = [
     ('do-gia-dung-thong-minh-tien-ich-ca-nhan', 'Đồ gia dụng thông minh & Tiện ích cá nhân'),
     ('phu-kien-cong-nghe-tien-ich-so', 'Phụ kiện công nghệ & Tiện ích số'),
 ]
+DEFAULT_BANNER_TEMPLATES = {
+    'opening': ('Sale Khai Trương', 'Ưu đãi đặc biệt dành cho những đơn hàng đầu tiên', 'sale-orange'),
+    'mid-month': ('Sale Giữa Tháng', 'Chọn món yêu thích, săn deal giá tốt mỗi ngày', 'sale-blue'),
+    'holiday': ('Sale Dịp Lễ', 'Quà hay cho mọi khoảnh khắc đáng nhớ', 'sale-green'),
+    'custom': ('Ưu đãi đặc biệt', 'Khám phá sản phẩm nổi bật hôm nay', 'sale-dark'),
+}
 FIXED_CATEGORY_SLUGS = {slug for slug, _ in DEFAULT_CATEGORIES}
 LEGACY_CATEGORY_MAPPING = {
     'the-thao-nam': 'the-thao-suc-khoe',
@@ -107,6 +114,33 @@ def set_cached(key, value, ttl=CACHE_TTL_SECONDS):
 def invalidate_product_cache():
     with _cache_lock:
         _cache.clear()
+
+
+def get_active_banners():
+    cached = get_cached(('active-banners',))
+    if cached is None:
+        conn = get_db_connection()
+        rows = conn.execute('''
+            SELECT id, title, subtitle, store_name, image_url, link_url, template, sort_order
+            FROM banners
+            WHERE is_active = 1
+            ORDER BY sort_order, id DESC
+        ''').fetchall()
+        conn.close()
+        cached = [dict(row) for row in rows]
+        set_cached(('active-banners',), cached)
+    return cached
+
+
+def get_all_banners():
+    conn = get_db_connection()
+    rows = conn.execute('''
+        SELECT id, title, subtitle, store_name, image_url, link_url, template, is_active, sort_order
+        FROM banners
+        ORDER BY sort_order, id DESC
+    ''').fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
 
 
 def slugify_category(name):
@@ -304,6 +338,52 @@ class PostgresConnection:
 def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
+
+    if DATABASE_URL:
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS banners (
+                id SERIAL PRIMARY KEY,
+                title TEXT NOT NULL,
+                subtitle TEXT,
+                store_name TEXT NOT NULL DEFAULT 'Lý Thúc Store',
+                image_url TEXT,
+                link_url TEXT,
+                template TEXT NOT NULL DEFAULT 'custom',
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                sort_order INTEGER NOT NULL DEFAULT 0
+            )
+        ''')
+    else:
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS banners (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                subtitle TEXT,
+                store_name TEXT NOT NULL DEFAULT 'Lý Thúc Store',
+                image_url TEXT,
+                link_url TEXT,
+                template TEXT NOT NULL DEFAULT 'custom',
+                is_active INTEGER NOT NULL DEFAULT 1,
+                sort_order INTEGER NOT NULL DEFAULT 0
+            )
+        ''')
+    conn.commit()
+    banner_count = conn.execute('SELECT COUNT(*) AS count FROM banners').fetchone()
+    banner_count = banner_count['count'] if DATABASE_URL else banner_count[0]
+    if banner_count == 0:
+        banner_values = [
+            ('Sale Khai Trương', 'Ưu đãi đặc biệt dành cho những đơn hàng đầu tiên', 'Lý Thúc Store', None, '/', 'opening', 1, 0),
+            ('Sale Giữa Tháng', 'Chọn món yêu thích, săn deal giá tốt mỗi ngày', 'Lý Thúc Store', None, '/', 'mid-month', 1, 1),
+        ]
+        insert_banner_query = '''
+            INSERT INTO banners (title, subtitle, store_name, image_url, link_url, template, is_active, sort_order)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        ''' if DATABASE_URL else '''
+            INSERT INTO banners (title, subtitle, store_name, image_url, link_url, template, is_active, sort_order)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        '''
+        conn.executemany(insert_banner_query, banner_values)
+        conn.commit()
 
     if DATABASE_URL:
         cursor.execute('''
@@ -529,6 +609,8 @@ def index():
         category_tree=get_category_tree(),
         root_categories=[category for category in get_categories(include_all=False) if category['parent_id'] is None],
         selected_root_slug=get_category_root_slug(selected_category),
+        banners=get_active_banners(),
+        banner_templates=DEFAULT_BANNER_TEMPLATES,
         selected_category=selected_category,
         search_query=search_query
     )
@@ -618,6 +700,107 @@ def login():
 def logout():
     session.pop('logged_in', None)
     return redirect(url_for('login'))
+
+
+def banner_form_values():
+    title = request.form.get('title', '').strip()
+    subtitle = request.form.get('subtitle', '').strip()
+    store_name = request.form.get('store_name', '').strip() or 'Lý Thúc Store'
+    template = request.form.get('template', 'custom').strip()
+    if template not in DEFAULT_BANNER_TEMPLATES:
+        template = 'custom'
+    if not title and template in DEFAULT_BANNER_TEMPLATES:
+        title = DEFAULT_BANNER_TEMPLATES[template][0]
+    if not subtitle and template in DEFAULT_BANNER_TEMPLATES:
+        subtitle = DEFAULT_BANNER_TEMPLATES[template][1]
+    sort_order = int(request.form.get('sort_order', '0') or 0)
+    is_active = 1 if request.form.get('is_active') == '1' else 0
+    image_url = request.form.get('image_url', '').strip()
+    upload = save_uploaded_image(request.files.get('banner_image'))
+    return title, subtitle, store_name, upload or image_url, request.form.get('link_url', '').strip(), template, is_active, sort_order
+
+
+@app.route('/admin/banners/add', methods=['POST'])
+def add_banner():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    conn = None
+    try:
+        values = banner_form_values()
+        if not values[0]:
+            raise ValueError('Vui lòng nhập tiêu đề Banner.')
+        conn = get_db_connection()
+        query = '''
+            INSERT INTO banners (title, subtitle, store_name, image_url, link_url, template, is_active, sort_order)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        '''
+        conn.execute(query, values)
+        conn.commit()
+        invalidate_product_cache()
+        flash('Đã thêm Banner thành công.', 'success')
+    except (ValueError, TypeError) as error:
+        if conn:
+            conn.rollback()
+        flash(str(error), 'error')
+    except Exception:
+        if conn:
+            conn.rollback()
+        app.logger.exception('Không thể thêm Banner')
+        flash('Không thể thêm Banner.', 'error')
+    finally:
+        if conn:
+            conn.close()
+    return redirect(url_for('admin'))
+
+
+@app.route('/admin/banners/edit/<int:id>', methods=['POST'])
+def edit_banner(id):
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    conn = None
+    try:
+        values = list(banner_form_values())
+        conn = get_db_connection()
+        current = conn.execute('SELECT image_url FROM banners WHERE id = ?', (id,)).fetchone()
+        if not current:
+            raise ValueError('Không tìm thấy Banner.')
+        if not values[0]:
+            raise ValueError('Vui lòng nhập tiêu đề Banner.')
+        values[3] = values[3] or current['image_url']
+        conn.execute('''
+            UPDATE banners
+            SET title = ?, subtitle = ?, store_name = ?, image_url = ?, link_url = ?, template = ?, is_active = ?, sort_order = ?
+            WHERE id = ?
+        ''', (*values, id))
+        conn.commit()
+        invalidate_product_cache()
+        flash('Đã cập nhật Banner thành công.', 'success')
+    except (ValueError, TypeError) as error:
+        if conn:
+            conn.rollback()
+        flash(str(error), 'error')
+    except Exception:
+        if conn:
+            conn.rollback()
+        app.logger.exception('Không thể cập nhật Banner')
+        flash('Không thể cập nhật Banner.', 'error')
+    finally:
+        if conn:
+            conn.close()
+    return redirect(url_for('admin'))
+
+
+@app.route('/admin/banners/delete/<int:id>', methods=['POST'])
+def delete_banner(id):
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    conn = get_db_connection()
+    conn.execute('DELETE FROM banners WHERE id = ?', (id,))
+    conn.commit()
+    conn.close()
+    invalidate_product_cache()
+    flash('Đã xóa Banner.', 'success')
+    return redirect(url_for('admin'))
 
 
 @app.route('/admin/categories/add', methods=['POST'])
@@ -806,6 +989,8 @@ def admin():
         category_tree=get_category_tree(),
         root_categories=[category for category in get_categories(include_all=False) if category['parent_id'] is None],
         fixed_category_slugs=FIXED_CATEGORY_SLUGS,
+        banners=get_all_banners(),
+        banner_templates=DEFAULT_BANNER_TEMPLATES,
         selected_category=selected_category,
         search_query=search_query,
         csrf_token=generate_csrf_token()
