@@ -120,10 +120,11 @@ def get_active_banners():
     cached = get_cached(('active-banners',))
     if cached is None:
         conn = get_db_connection()
-        rows = conn.execute('''
+        active_clause = 'is_active = TRUE' if DATABASE_URL else 'is_active = 1'
+        rows = conn.execute(f'''
             SELECT id, title, subtitle, store_name, image_url, link_url, template, sort_order
             FROM banners
-            WHERE is_active = 1
+            WHERE {active_clause}
             ORDER BY sort_order, id DESC
         ''').fetchall()
         conn.close()
@@ -372,8 +373,8 @@ def init_db():
     banner_count = banner_count['count'] if DATABASE_URL else banner_count[0]
     if banner_count == 0:
         banner_values = [
-            ('Sale Khai Trương', 'Ưu đãi đặc biệt dành cho những đơn hàng đầu tiên', 'Lý Thúc Store', None, '/', 'opening', 1, 0),
-            ('Sale Giữa Tháng', 'Chọn món yêu thích, săn deal giá tốt mỗi ngày', 'Lý Thúc Store', None, '/', 'mid-month', 1, 1),
+            ('Sale Khai Trương', 'Ưu đãi đặc biệt dành cho những đơn hàng đầu tiên', 'Lý Thúc Store', None, '/', 'opening', True, 0),
+            ('Sale Giữa Tháng', 'Chọn món yêu thích, săn deal giá tốt mỗi ngày', 'Lý Thúc Store', None, '/', 'mid-month', True, 1),
         ]
         insert_banner_query = '''
             INSERT INTO banners (title, subtitle, store_name, image_url, link_url, template, is_active, sort_order)
@@ -714,7 +715,7 @@ def banner_form_values():
     if not subtitle and template in DEFAULT_BANNER_TEMPLATES:
         subtitle = DEFAULT_BANNER_TEMPLATES[template][1]
     sort_order = int(request.form.get('sort_order', '0') or 0)
-    is_active = 1 if request.form.get('is_active') == '1' else 0
+    is_active = request.form.get('is_active') == '1'
     image_url = request.form.get('image_url', '').strip()
     upload = save_uploaded_image(request.files.get('banner_image'))
     return title, subtitle, store_name, upload or image_url, request.form.get('link_url', '').strip(), template, is_active, sort_order
