@@ -48,6 +48,43 @@
         }
         body.is-navigating .page-loader { opacity: 1; pointer-events: auto; }
         @keyframes loader-spin { to { transform: rotate(360deg); } }
+        body.drawer-open { overflow: hidden; }
+        .drawer-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1090;
+            background: rgba(15, 23, 42, 0.42);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.22s ease;
+        }
+        .category-drawer {
+            position: fixed;
+            inset: 0 auto 0 0;
+            z-index: 1100;
+            width: min(340px, 88vw);
+            padding: 24px 20px;
+            overflow-y: auto;
+            background: var(--surface);
+            box-shadow: 10px 0 30px rgba(15, 23, 42, 0.14);
+            transform: translateX(-105%);
+            transition: transform 0.25s ease;
+        }
+        body.drawer-open .drawer-overlay { opacity: 1; pointer-events: auto; }
+        body.drawer-open .category-drawer { transform: translateX(0); }
+        .drawer-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+        .drawer-header h2 { font-size: 1.1rem; }
+        .drawer-close { border: 0; background: #f3f4f6; color: var(--ink); width: 36px; height: 36px; border-radius: 8px; cursor: pointer; font-size: 1rem; }
+        .drawer-category-list { list-style: none; padding: 12px 0; }
+        .drawer-category-item { border-bottom: 1px solid #f0f1f3; }
+        .drawer-category-row { display: flex; align-items: center; gap: 8px; min-height: 46px; }
+        .drawer-category-link { flex: 1; color: var(--ink); text-decoration: none; font-weight: 600; }
+        .drawer-category-link.active { color: var(--accent); }
+        .drawer-expand { border: 0; background: transparent; color: var(--muted); padding: 8px; cursor: pointer; transition: transform 0.2s ease; }
+        .drawer-category-item.is-expanded > .drawer-category-row .drawer-expand { transform: rotate(180deg); }
+        .drawer-children { display: none; list-style: none; padding: 0 0 6px 18px; }
+        .drawer-category-item.is-expanded > .drawer-children { display: block; }
+        .drawer-children .drawer-category-link { display: block; padding: 8px 0; color: var(--muted); font-size: 0.92rem; }
         .header-container {
             background: var(--surface);
             border-bottom: 1px solid var(--line);
@@ -158,6 +195,20 @@
             justify-content: space-between;
             gap: 18px;
         }
+        .catalog-menu-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 10px 14px;
+            background: var(--surface);
+            color: var(--ink);
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 3px 10px rgba(23, 32, 51, 0.04);
+        }
+        .catalog-menu-button:hover { border-color: var(--ink); }
         .category-list {
             display: flex;
             flex-wrap: wrap;
@@ -445,14 +496,7 @@
                 gap: 12px;
                 padding: 0 12px;
             }
-            .category-list {
-                flex-wrap: nowrap;
-                overflow-x: auto;
-                padding-bottom: 3px;
-                scrollbar-width: none;
-            }
-            .category-list::-webkit-scrollbar { display: none; }
-            .category-chip { flex: 0 0 auto; }
+            .category-list { display: block; }
             .sort-control { justify-content: space-between; }
             .sort-control select { flex: 1; }
             .grid-container {
@@ -521,6 +565,29 @@
 <body>
 
     <div class="page-loader" aria-hidden="true"></div>
+    <div class="drawer-overlay" id="drawerOverlay"></div>
+    <aside class="category-drawer" id="categoryDrawer" aria-label="Danh mục sản phẩm" aria-hidden="true">
+        <div class="drawer-header">
+            <h2><i class="fa-solid fa-layer-group"></i> Danh mục sản phẩm</h2>
+            <button type="button" class="drawer-close" id="drawerClose" aria-label="Đóng danh mục"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <ul class="drawer-category-list">
+            <li class="drawer-category-item">
+                <div class="drawer-category-row">
+                    <a class="drawer-category-link{% if selected_category == 'all' %} active{% endif %}" href="/?{% if search_query %}q={{ search_query|urlencode }}{% endif %}">Tất cả sản phẩm</a>
+                </div>
+            </li>
+            {% for category in category_tree recursive %}
+            <li class="drawer-category-item{% if selected_category == category.slug %} is-selected{% endif %}">
+                <div class="drawer-category-row">
+                    <a class="drawer-category-link category-link{% if selected_category == category.slug %} active{% endif %}" href="/?danh_muc={{ category.slug }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}">{{ category.name }}</a>
+                    {% if category.children %}<button type="button" class="drawer-expand" aria-label="Mở danh mục con"><i class="fa-solid fa-chevron-down"></i></button>{% endif %}
+                </div>
+                {% if category.children %}<ul class="drawer-children">{{ loop(category.children) }}</ul>{% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </aside>
 
     <div class="header-container">
         <a href="/admin" class="admin-link"><i class="fa-solid fa-lock"></i> Quản Trị</a>
@@ -541,11 +608,7 @@
 
     <div class="catalog-toolbar">
         <div class="category-list">
-            {% for key, label in danh_muc_options.items() %}
-            <a href="/?danh_muc={{ key }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}" class="category-chip category-link{% if selected_category == key %} active{% endif %}">
-                {{ label }}
-            </a>
-            {% endfor %}
+            <button type="button" class="catalog-menu-button" id="drawerOpen" aria-controls="categoryDrawer" aria-expanded="false"><i class="fa-solid fa-bars"></i> Danh mục</button>
         </div>
         <label class="sort-control" for="sortProducts">
             <span>Sắp xếp</span>
@@ -609,6 +672,28 @@
     </div>
 
     <script>
+        const drawerOpen = document.getElementById('drawerOpen');
+        const drawerClose = document.getElementById('drawerClose');
+        const drawerOverlay = document.getElementById('drawerOverlay');
+        const categoryDrawer = document.getElementById('categoryDrawer');
+        const setDrawerState = (isOpen) => {
+            document.body.classList.toggle('drawer-open', isOpen);
+            drawerOpen.setAttribute('aria-expanded', String(isOpen));
+            categoryDrawer.setAttribute('aria-hidden', String(!isOpen));
+        };
+        drawerOpen.addEventListener('click', () => setDrawerState(true));
+        drawerClose.addEventListener('click', () => setDrawerState(false));
+        drawerOverlay.addEventListener('click', () => setDrawerState(false));
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') setDrawerState(false);
+        });
+        document.querySelectorAll('.drawer-expand').forEach((button) => {
+            button.addEventListener('click', () => {
+                const item = button.closest('.drawer-category-item');
+                item.classList.toggle('is-expanded');
+            });
+        });
+
         const productImages = document.querySelectorAll('.product-image');
         productImages.forEach((image) => {
             const finishLoading = () => image.classList.remove('is-loading');

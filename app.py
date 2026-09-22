@@ -111,8 +111,11 @@ def get_categories(include_all=True):
     cached = get_cached(('categories',))
     if cached is None:
         conn = get_db_connection()
-        order_clause = 'LOWER(name)' if DATABASE_URL else 'name COLLATE NOCASE'
-        rows = conn.execute(f'SELECT id, name, slug FROM categories ORDER BY {order_clause}').fetchall()
+        rows = conn.execute('''
+            SELECT id, name, slug, parent_id, sort_order
+            FROM categories
+            ORDER BY COALESCE(parent_id, 0), sort_order, LOWER(name)
+        ''').fetchall()
         conn.close()
         cached = [dict(row) for row in rows]
         set_cached(('categories',), cached)
@@ -123,6 +126,55 @@ def get_categories(include_all=True):
 
 def category_options():
     return {category['slug']: category['name'] for category in get_categories()}
+
+
+def get_category_tree():
+    categories = get_categories(include_all=False)
+    by_parent = {}
+    for category in categories:
+        by_parent.setdefault(category['parent_id'], []).append(category)
+
+    def build(parent_id=None, depth=0):
+        result = []
+        for category in by_parent.get(parent_id, []):
+            category = dict(category)
+            category['depth'] = depth
+            category['children'] = build(category['id'], depth + 1)
+            result.append(category)
+        return result
+
+    return build()
+
+
+def get_category_descendant_slugs(selected_slug):
+    if not selected_slug or selected_slug == 'all':
+        return []
+    categories = get_categories(include_all=False)
+    selected = next((item for item in categories if item['slug'] == selected_slug), None)
+    if not selected:
+        return [selected_slug]
+    children = {}
+    for category in categories:
+        children.setdefault(category['parent_id'], []).append(category)
+    slugs = []
+    pending = [selected['id']]
+    while pending:
+        category_id = pending.pop()
+        category = next((item for item in categories if item['id'] == category_id), None)
+        if category:
+            slugs.append(category['slug'])
+        pending.extend(item['id'] for item in children.get(category_id, []))
+    return slugs
+
+
+def category_is_descendant(categories, category_id, possible_parent_id):
+    current_id = possible_parent_id
+    while current_id is not None:
+        if current_id == category_id:
+            return True
+        current = next((item for item in categories if item['id'] == current_id), None)
+        current_id = current['parent_id'] if current else None
+    return False
 
 
 def optimize_image_url(image_url, width=600, height=600):
@@ -227,7 +279,9 @@ def init_db():
             CREATE TABLE IF NOT EXISTS categories (
                 id SERIAL PRIMARY KEY,
                 name TEXT NOT NULL,
-                slug TEXT NOT NULL UNIQUE
+                slug TEXT NOT NULL UNIQUE,
+                parent_id INTEGER REFERENCES categories(id) ON DELETE RESTRICT,
+                sort_order INTEGER NOT NULL DEFAULT 0
             )
         ''')
     else:
@@ -235,9 +289,21 @@ def init_db():
             CREATE TABLE IF NOT EXISTS categories (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
-                slug TEXT NOT NULL UNIQUE
+                slug TEXT NOT NULL UNIQUE,
+                parent_id INTEGER,
+                sort_order INTEGER NOT NULL DEFAULT 0
             )
         ''')
+    conn.commit()
+    if DATABASE_URL:
+        cursor.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'categories'")
+        category_columns = {row['column_name'] for row in cursor.fetchall()}
+    else:
+        category_columns = {row[1] for row in cursor.execute('PRAGMA table_info(categories)').fetchall()}
+    if 'parent_id' not in category_columns:
+        cursor.execute('ALTER TABLE categories ADD COLUMN parent_id INTEGER')
+    if 'sort_order' not in category_columns:
+        cursor.execute('ALTER TABLE categories ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0')
     conn.commit()
     for slug, name in DEFAULT_CATEGORIES:
         if DATABASE_URL:
@@ -358,8 +424,14 @@ def index():
         conditions = []
         parameters = []
         if selected_category and selected_category != 'all':
-            conditions.append('danh_muc = ?')
-            parameters.append(selected_category)
+            category_slugs = get_category_descendant_slugs(selected_category)
+            if category_slugs:
+                placeholders = ', '.join('?' for _ in category_slugs)
+                conditions.append(f'danh_muc IN ({placeholders})')
+                parameters.extend(category_slugs)
+            else:
+                conditions.append('danh_muc = ?')
+                parameters.append(selected_category)
         if search_query:
             conditions.append('LOWER(ten) LIKE LOWER(?)')
             parameters.append(f'%{search_query}%')
@@ -393,6 +465,7 @@ def index():
         'index.html',
         san_pham=san_pham,
         danh_muc_options=category_options(),
+        category_tree=get_category_tree(),
         selected_category=selected_category,
         search_query=search_query
     )
@@ -447,7 +520,7 @@ def admin_search_products():
         WHERE LOWER(ten) LIKE LOWER(?)
            OR LOWER(link_affiliate) LIKE LOWER(?)
            OR LOWER(tag) LIKE LOWER(?)
-        ORDER BY id DESC
+          ORDER BY san_pham.id DESC
         LIMIT 8
     ''', tuple([f'%{search_query}%'] * 3)).fetchall()
     conn.close()
@@ -491,6 +564,9 @@ def add_category():
 
     name = request.form.get('name', '').strip()
     slug = slugify_category(name)
+    parent_value = request.form.get('parent_id', '').strip()
+    parent_id = int(parent_value) if parent_value.isdigit() else None
+    sort_order = int(request.form.get('sort_order', '0') or 0)
     if not name or not slug:
         flash('Vui lòng nhập tên danh mục hợp lệ.', 'error')
         return redirect(url_for('admin'))
@@ -498,7 +574,12 @@ def add_category():
     conn = None
     try:
         conn = get_db_connection()
-        conn.execute('INSERT INTO categories (name, slug) VALUES (?, ?)', (name, slug))
+        if parent_id is not None and not conn.execute('SELECT id FROM categories WHERE id = ?', (parent_id,)).fetchone():
+            raise ValueError('Danh mục cha không tồn tại.')
+        conn.execute(
+            'INSERT INTO categories (name, slug, parent_id, sort_order) VALUES (?, ?, ?, ?)',
+            (name, slug, parent_id, sort_order)
+        )
         conn.commit()
         invalidate_product_cache()
         flash('Đã thêm danh mục thành công.', 'success')
@@ -506,6 +587,10 @@ def add_category():
         if conn:
             conn.rollback()
         flash('Tên hoặc slug danh mục đã tồn tại.', 'error')
+    except ValueError as error:
+        if conn:
+            conn.rollback()
+        flash(str(error), 'error')
     finally:
         if conn:
             conn.close()
@@ -519,6 +604,9 @@ def edit_category(id):
 
     name = request.form.get('name', '').strip()
     slug = slugify_category(name)
+    parent_value = request.form.get('parent_id', '').strip()
+    parent_id = int(parent_value) if parent_value.isdigit() else None
+    sort_order = int(request.form.get('sort_order', '0') or 0)
     if not name or not slug:
         flash('Vui lòng nhập tên danh mục hợp lệ.', 'error')
         return redirect(url_for('admin'))
@@ -531,7 +619,15 @@ def edit_category(id):
             flash('Không tìm thấy danh mục.', 'error')
             return redirect(url_for('admin'))
         old_slug = existing['slug']
-        conn.execute('UPDATE categories SET name = ?, slug = ? WHERE id = ?', (name, slug, id))
+        categories = get_categories(include_all=False)
+        if parent_id == id or (parent_id is not None and category_is_descendant(categories, id, parent_id)):
+            raise ValueError('Không thể chọn danh mục con làm danh mục cha.')
+        if parent_id is not None and not conn.execute('SELECT id FROM categories WHERE id = ?', (parent_id,)).fetchone():
+            raise ValueError('Danh mục cha không tồn tại.')
+        conn.execute(
+            'UPDATE categories SET name = ?, slug = ?, parent_id = ?, sort_order = ? WHERE id = ?',
+            (name, slug, parent_id, sort_order, id)
+        )
         if old_slug != slug:
             conn.execute('UPDATE san_pham SET danh_muc = ? WHERE danh_muc = ?', (slug, old_slug))
         conn.commit()
@@ -541,6 +637,10 @@ def edit_category(id):
         if conn:
             conn.rollback()
         flash('Tên hoặc slug danh mục đã tồn tại.', 'error')
+    except ValueError as error:
+        if conn:
+            conn.rollback()
+        flash(str(error), 'error')
     finally:
         if conn:
             conn.close()
@@ -558,6 +658,11 @@ def delete_category(id):
         category = conn.execute('SELECT slug FROM categories WHERE id = ?', (id,)).fetchone()
         if not category:
             flash('Không tìm thấy danh mục.', 'error')
+            return redirect(url_for('admin'))
+        children = conn.execute('SELECT COUNT(*) AS count FROM categories WHERE parent_id = ?', (id,)).fetchone()
+        child_count = children['count'] if DATABASE_URL else children[0]
+        if child_count:
+            flash('Không thể xóa danh mục đang có danh mục con.', 'error')
             return redirect(url_for('admin'))
         usage = conn.execute('SELECT COUNT(*) AS count FROM san_pham WHERE danh_muc = ?', (category['slug'],)).fetchone()
         count = usage['count'] if DATABASE_URL else usage[0]
@@ -622,6 +727,7 @@ def admin():
         san_pham=danh_sach,
         danh_muc_options=category_options(),
         categories=get_categories(include_all=False),
+        category_tree=get_category_tree(),
         selected_category=selected_category,
         search_query=search_query,
         csrf_token=generate_csrf_token()
